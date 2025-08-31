@@ -1,0 +1,14 @@
+# === Dependencias del Núcleo del Proceso ETL ===
+pandas>=2.0
+openpyxl>=3.1
+requests>=2.3
+pydantic>=2.0
+xlrd>=2.0
+XlsxWriter>=3.1
+python-dotenv>=0.20
+
+# === Dependencias de la Aplicación Web (Opcional) ===
+Flask>=2.3
+google-cloud-storage>=2.10
+google-auth>=2.23
+Werkzeug>=2.3
