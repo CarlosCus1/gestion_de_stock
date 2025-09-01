@@ -117,4 +117,4 @@ El archivo `config.py` contiene todas las opciones de configuración del proyect
 -   La columna de almacén para el seguimiento histórico (`HISTORICO_STOCK_COLUMN`).
 -   Los estilos de las tablas de Excel.
 
-```
+```# gestion_de_stock
