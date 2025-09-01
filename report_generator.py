@@ -64,7 +64,7 @@ def generate_stock_report(df_base_generales: pd.DataFrame, lineas_a_procesar: Li
     except Exception as e:
         logging.error(f"Error generando reporte_stock_hoy.xlsx: {e}")
 
-def generate_especiales_report(df_consolidado: pd.DataFrame):
+def generate_especiales_report(df_consolidado: pd.DataFrame, df_especiales_cat: pd.DataFrame):
     """
     Genera el reporte de códigos especiales usando una tabla de Excel formateada,
     poblando el stock desde el dataframe consolidado e incluyendo columnas de almacenes e históricos.
@@ -72,10 +72,9 @@ def generate_especiales_report(df_consolidado: pd.DataFrame):
     try:
         logging.info("Iniciando generación de reporte de especiales con formato de tabla...")
 
-        # 1. Cargar la plantilla de códigos especiales
-        df_plantilla = pd.read_excel(settings.INPUT_ESPECIALES_EXCEL, dtype={'codigo': str})
-        df_plantilla['codigo'] = df_plantilla['codigo'].str.strip()
-        logging.info(f"Cargados {len(df_plantilla)} códigos desde la plantilla de especiales.")
+        # 1. Usar la plantilla de códigos especiales proporcionada
+        df_plantilla = df_especiales_cat.copy()
+        logging.info(f"Usando {len(df_plantilla)} códigos desde la plantilla de especiales proporcionada.")
 
         # Identificar columnas de almacenes dinámicamente
         warehouse_cols = sorted([col for col in df_consolidado.columns if col.endswith('_disponible')])
@@ -224,3 +223,24 @@ def generate_stock_generales_json(df_base_generales: pd.DataFrame, df_base_espec
 
     except Exception as e:
         logging.error(f"Error generando stock_generales.json: {e}")
+
+def save_current_stock_as_previous(df_consolidado: pd.DataFrame):
+    """
+    Guarda el stock actual de productos como el stock 'anterior' para la próxima ejecución.
+    Guarda solo el código y el stock referencial (VES_disponible).
+    """
+    try:
+        # Asegurarse de que las columnas necesarias existan
+        if 'codigo' not in df_consolidado.columns or 'stock_referencial' not in df_consolidado.columns:
+            logging.error("df_consolidado no contiene las columnas 'codigo' o 'stock_referencial'. No se guardará el stock anterior.")
+            return
+
+        # Crear un diccionario de codigo -> stock_referencial
+        previous_stock_data = df_consolidado.set_index('codigo')['stock_referencial'].to_dict()
+
+        # Guardar el diccionario como un archivo JSON
+        with open(settings.PREVIOUS_STOCK_FILE, 'w', encoding='utf-8') as f:
+            json.dump(previous_stock_data, f, indent=4, ensure_ascii=False)
+        logging.info(f"Stock actual guardado como stock anterior en {settings.PREVIOUS_STOCK_FILE}")
+    except Exception as e:
+        logging.error(f"Error al guardar el stock actual como anterior: {e}")

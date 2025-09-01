@@ -31,9 +31,11 @@ class Settings:
     OUTPUT_ESPECIALES_REPORT_EXCEL = os.path.join(SALIDA_DIR, "reporte_especiales.xlsx")
     OUTPUT_PRODUCTOS_LOCAL_JSON = os.path.join(SALIDA_DIR, "productos_local.json")
     STOCK_GENERALES_FILE = os.path.join(SALIDA_DIR, "stock_generales.json")
+    REPORTES_DIR = SALIDA_DIR
     
     # === ARCHIVOS DE PROCESAMIENTO (Archivos de Trabajo) ===
     DATA_STOCK_COMPLETO_FILE = os.path.join(PROCESAMIENTO_DIR, "data_stock_completo.xlsx")
+    PREVIOUS_STOCK_FILE = os.path.join(TEMP_DIR, "previous_stock.json")
 
     # === API & DESCARGAS (desde .env) ===
     STOCK_API_URL = os.getenv("STOCK_API_URL", "http://default.url/if/not/set")
