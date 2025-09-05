@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta # Added timedelta
 import traceback
 import glob
 import warnings
@@ -13,14 +13,16 @@ from data_loader import (
     load_catalogs_and_lines,
     load_base_total,
     merge_catalogs,
-    load_previous_stock
+    load_previous_stock,
+    load_historical_stock_snapshot # Added new import
 )
 from report_generator import (
+    generate_historical_general_stock_report,
     generate_stock_report,
     generate_especiales_report,
     generate_productos_local_json,
     generate_stock_generales_json,
-    save_current_stock_as_previous
+    save_daily_stock_snapshot
 )
 
 # --- CONFIGURACIÓN INICIAL ---
@@ -109,6 +111,25 @@ def main():
             df_consolidado = pd.merge(df_consolidado, df_stock_anterior, on='codigo', how='left')
             df_consolidado['stock_antes'] = df_consolidado['stock_antes'].fillna(0).astype(int) # Fill NaN with 0 and convert to int
 
+        # Load historical stock for 'stock_ayer' and 'stock_hace_una_semana'
+        today = datetime.now()
+        yesterday = today - timedelta(days=1)
+        one_week_ago = today - timedelta(days=7)
+
+        stock_ayer_dict = load_historical_stock_snapshot(yesterday)
+        if stock_ayer_dict:
+            df_stock_ayer = pd.DataFrame(list(stock_ayer_dict.items()), columns=['codigo', 'stock_ayer'])
+            df_stock_ayer['codigo'] = df_stock_ayer['codigo'].astype(str).str.strip()
+            df_consolidado = pd.merge(df_consolidado, df_stock_ayer, on='codigo', how='left')
+            df_consolidado['stock_ayer'] = df_consolidado['stock_ayer'].fillna(0).astype(int)
+
+        stock_hace_una_semana_dict = load_historical_stock_snapshot(one_week_ago)
+        if stock_hace_una_semana_dict:
+            df_stock_hace_una_semana = pd.DataFrame(list(stock_hace_una_semana_dict.items()), columns=['codigo', 'stock_hace_una_semana'])
+            df_stock_hace_una_semana['codigo'] = df_stock_hace_una_semana['codigo'].astype(str).str.strip()
+            df_consolidado = pd.merge(df_consolidado, df_stock_hace_una_semana, on='codigo', how='left')
+            df_consolidado['stock_hace_una_semana'] = df_consolidado['stock_hace_una_semana'].fillna(0).astype(int)
+
         # Asegurar columnas opcionales para los reportes
         if 'precio' not in df_consolidado.columns: df_consolidado['precio'] = 0.0
         if 'can_kg_um' not in df_consolidado.columns: df_consolidado['can_kg_um'] = ''
@@ -117,7 +138,7 @@ def main():
         df_consolidado['can_kg_um'] = pd.to_numeric(df_consolidado['can_kg_um'], errors='coerce').fillna(0.0)
         
         # Conversión final de tipos de datos numéricos
-        int_columns = ['u_por_caja', 'orden', 'stock_referencial'] + \
+        int_columns = ['u_por_caja', 'orden', 'stock_referencial', 'stock_ayer', 'stock_hace_una_semana'] + \
                      [col for col in df_consolidado.columns if any(k in col for k in ['_stock_total', '_disponible', '_predespacho'])]
         for col in int_columns:
             if col in df_consolidado.columns:
@@ -128,6 +149,9 @@ def main():
         df_consolidado.drop(columns=['motivo'], errors='ignore').to_excel(settings.DATA_STOCK_COMPLETO_FILE, index=False)
         logger.info(f"{settings.DATA_STOCK_COMPLETO_FILE} generado.")
         
+        # 5. Guardar estado para la próxima ejecución (snapshot del inicio del día)
+        save_daily_stock_snapshot(df_consolidado)
+
         # 4. Generación de todos los reportes
         logger.info("--- PASO 3: GENERANDO REPORTES ---")
         
@@ -143,15 +167,12 @@ def main():
         df_base_especiales.drop_duplicates(subset=['codigo'], inplace=True)
 
         # Generar cada reporte llamando a las funciones del módulo generador
+        generate_historical_general_stock_report(df_generales_cat, df_base)
+        
         generate_stock_report(df_base_generales.copy(), lineas_a_procesar)
-        generate_especiales_report(df_consolidado, df_especiales_cat)
+        generate_especiales_report(df_consolidado)
         generate_productos_local_json(df_consolidado, lineas_a_procesar)
         generate_stock_generales_json(df_base_generales, df_base_especiales, lineas_a_procesar)
-        
-        # 5. Guardar estado para la próxima ejecución
-        save_current_stock_as_previous(df_consolidado)
-        
-        logger.info("=== PROCESO FINALIZADO CON ÉXITO ===")
         
     except Exception as e:
         logger.error(f"Error fatal en el proceso principal: {e}")

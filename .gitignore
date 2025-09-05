@@ -130,7 +130,7 @@ cython_debug/
 # Project-specific
 /salida/
 /procesamiento/
-/datos/REPT_STOCK_*.xls*
+/datos/
 *.log
 
 # Environment variables

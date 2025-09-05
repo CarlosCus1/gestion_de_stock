@@ -139,6 +139,7 @@ import requests
 from io import BytesIO
 import json
 from typing import List, Optional, Tuple, Dict
+from datetime import datetime # Added datetime import
 
 from config import settings
 
@@ -308,3 +309,22 @@ def load_previous_stock() -> Optional[Dict[str, int]]:
     except Exception as e:
         logging.error(f"Error al cargar el stock anterior desde {settings.PREVIOUS_STOCK_FILE}: {e}")
         return {}
+
+def load_historical_stock_snapshot(date: datetime) -> Optional[Dict[str, int]]:
+    """
+    Carga un snapshot de stock histórico para una fecha específica.
+    Retorna un diccionario de codigo -> stock_referencial para esa fecha.
+    """
+    snapshot_filename = os.path.join(settings.HISTORICOS_DIR, f"stock_snapshot_{date.strftime('%Y-%m-%d')}.json")
+    if not os.path.exists(snapshot_filename):
+        logging.warning(f"No se encontró el snapshot histórico para la fecha {date.strftime('%Y-%m-%d')}: {snapshot_filename}")
+        return {}
+    try:
+        with open(snapshot_filename, 'r', encoding='utf-8') as f:
+            historical_stock_data = json.load(f)
+        logging.info(f"Snapshot histórico cargado desde {snapshot_filename} con {len(historical_stock_data)} productos.")
+        return historical_stock_data
+    except Exception as e:
+        logging.error(f"Error al cargar el snapshot histórico desde {snapshot_filename}: {e}")
+        return {}
+
