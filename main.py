@@ -5,6 +5,7 @@ from datetime import datetime, timedelta # Added timedelta
 import traceback
 import glob
 import warnings
+import shutil
 
 # Módulos de configuración y lógica de la aplicación
 from config import settings
@@ -174,6 +175,17 @@ def main():
         generate_productos_local_json(df_consolidado, lineas_a_procesar)
         generate_stock_generales_json(df_base_generales, df_base_especiales, lineas_a_procesar)
         
+        # Copiar reporte_stock_hoy.xlsx al escritorio
+        logger.info("Copiando reporte_stock_hoy.xlsx al escritorio...")
+        try:
+            source_path = os.path.join(settings.SALIDA_DIR, "reporte_stock_hoy.xlsx")
+            destination_path = r"C:\Users\ccusi\Desktop\reporte_stock_hoy.xlsx"
+            shutil.copy(source_path, destination_path)
+            logger.info(f"reporte_stock_hoy.xlsx copiado exitosamente a {destination_path}")
+        except Exception as copy_e:
+            logger.error(f"Error al copiar reporte_stock_hoy.xlsx al escritorio: {copy_e}")
+            logger.error(traceback.format_exc())
+
     except Exception as e:
         logger.error(f"Error fatal en el proceso principal: {e}")
         logger.error(traceback.format_exc())
