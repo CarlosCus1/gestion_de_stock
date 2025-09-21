@@ -11,20 +11,20 @@ class Settings:
     """
     # === DIRECTORIOS ===
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATOS_DIR = os.path.join(BASE_DIR, "datos")
+    DATOS_DIR = os.path.join(BASE_DIR, "data_sources") # Corregido
     SALIDA_DIR = os.path.join(BASE_DIR, "salida")
     PROCESAMIENTO_DIR = os.path.join(BASE_DIR, "procesamiento")
     LOGS_DIR = os.path.join(PROCESAMIENTO_DIR, "logs")
     HISTORICOS_DIR = os.path.join(PROCESAMIENTO_DIR, "historicos")
     TEMP_DIR = os.path.join(PROCESAMIENTO_DIR, "temp")
     
-    REQUIRED_DIRS = [DATOS_DIR, SALIDA_DIR, PROCESAMIENTO_DIR, LOGS_DIR, HISTORICOS_DIR, TEMP_DIR]
+    REQUIRED_DIRS = [os.path.join(DATOS_DIR, "catalogs"), os.path.join(DATOS_DIR, "base_data"), SALIDA_DIR, PROCESAMIENTO_DIR, LOGS_DIR, HISTORICOS_DIR, TEMP_DIR]
 
     # === ARCHIVOS DE ENTRADA ===
-    INPUT_GENERALES_EXCEL = os.path.join(DATOS_DIR, "codigos_generales.xlsx")
-    INPUT_ESPECIALES_EXCEL = os.path.join(DATOS_DIR, "codigos_especiales.xlsx")
-    INPUT_LINES_TO_PROCESS_EXCEL = os.path.join(DATOS_DIR, "lineas_a_procesar.xlsx")
-    INPUT_BASE_TOTAL = os.path.join(DATOS_DIR, "base_total.xls")
+    INPUT_GENERALES_EXCEL = os.path.join(DATOS_DIR, "catalogs", "codigos_generales.xlsx")
+    INPUT_ESPECIALES_EXCEL = os.path.join(DATOS_DIR, "catalogs", "codigos_especiales.xlsx")
+    INPUT_LINES_TO_PROCESS_EXCEL = os.path.join(DATOS_DIR, "catalogs", "lineas_a_procesar.xlsx")
+    INPUT_BASE_TOTAL = os.path.join(DATOS_DIR, "base_data", "base_total.xls")
 
     # === ARCHIVOS DE SALIDA (Resultados Finales) ===
     OUTPUT_FINAL_REPORT_EXCEL = os.path.join(SALIDA_DIR, "reporte_stock_hoy.xlsx")
@@ -38,7 +38,7 @@ class Settings:
     PREVIOUS_STOCK_FILE = os.path.join(TEMP_DIR, "previous_stock.json")
 
     # === API & DESCARGAS (desde .env) ===
-    STOCK_API_URL = os.getenv("STOCK_API_URL", "http://default.url/if/not/set")
+    STOCK_API_URL = os.getenv("STOCK_API_URL")
 
     # === GOOGLE CLOUD STORAGE (desde .env) ===
     STORAGE_BUCKET_NAME = os.getenv("STORAGE_BUCKET_NAME")
@@ -114,3 +114,7 @@ class Settings:
     }
 
 settings = Settings()
+
+# Validar que las variables de entorno críticas estén configuradas
+if settings.STOCK_API_URL is None:
+    raise ValueError("La variable de entorno STOCK_API_URL no está configurada. Por favor, defínela en el archivo .env")

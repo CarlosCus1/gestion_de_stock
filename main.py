@@ -175,17 +175,14 @@ def main():
         generate_productos_local_json(df_consolidado, lineas_a_procesar)
         generate_stock_generales_json(df_base_generales, df_base_especiales, lineas_a_procesar)
         
-        # Copiar reporte_stock_hoy.xlsx al escritorio
-        logger.info("Copiando reporte_stock_hoy.xlsx al escritorio...")
-        try:
-            source_path = os.path.join(settings.SALIDA_DIR, "reporte_stock_hoy.xlsx")
-            destination_path = r"C:\Users\ccusi\Desktop\reporte_stock_hoy.xlsx"
-            shutil.copy(source_path, destination_path)
-            logger.info(f"reporte_stock_hoy.xlsx copiado exitosamente a {destination_path}")
-        except Exception as copy_e:
-            logger.error(f"Error al copiar reporte_stock_hoy.xlsx al escritorio: {copy_e}")
-            logger.error(traceback.format_exc())
-
+        # Generar cada reporte llamando a las funciones del módulo generador
+        generate_historical_general_stock_report(df_generales_cat, df_base)
+        
+        generate_stock_report(df_base_generales.copy(), lineas_a_procesar)
+        generate_especiales_report(df_consolidado)
+        generate_productos_local_json(df_consolidado, lineas_a_procesar)
+        generate_stock_generales_json(df_base_generales, df_base_especiales, lineas_a_procesar)
+        
     except Exception as e:
         logger.error(f"Error fatal en el proceso principal: {e}")
         logger.error(traceback.format_exc())

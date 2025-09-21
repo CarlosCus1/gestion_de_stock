@@ -153,7 +153,7 @@ def validate_file_exists(filepath: str, description: str) -> bool:
 
 def download_and_parse_rept_stock() -> Optional[pd.DataFrame]:
     """Descarga y procesa el reporte de stock desde la API."""
-    logging.info("Descargando REPT_STOCK...")
+    logging.info("Descargando REPT_STOCK desde la API...")
     try:
         response = requests.get(settings.STOCK_API_URL, timeout=120)
         response.raise_for_status()
@@ -163,7 +163,7 @@ def download_and_parse_rept_stock() -> Optional[pd.DataFrame]:
         df = df_raw.iloc[:, [1, 2, 9, 13, 16, 18]].copy()
         df.columns = ["ARTÍCULO", "NOMBRE_ARTICULO", "ALMACEN", "STOCK TOTAL", "PREDESPACHO", "DISPONIBLE"]
         df.rename(columns=settings.REPT_STOCK_COLS_MAP, inplace=True)
-        
+
         df.dropna(subset=["codigo", "almacen"], inplace=True)
         df["codigo"] = df["codigo"].astype(str).str.strip()
 
@@ -180,7 +180,7 @@ def download_and_parse_rept_stock() -> Optional[pd.DataFrame]:
         )
         df_pivot.columns = [f"{alm}_{tipo.replace(' ', '_')}" for tipo, alm in df_pivot.columns]
         df_pivot.reset_index(inplace=True)
-        df_pivot['codigo'] = df_pivot['codigo'].astype(str).str.strip() # Ensure codigo remains string after pivot
+        df_pivot['codigo'] = df_pivot['codigo'].astype(str).str.strip()
         # Remove all spaces
         df_pivot['codigo'] = df_pivot['codigo'].str.replace(' ', '', regex=False)
 

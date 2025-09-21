@@ -1,6 +1,6 @@
-# Gestión de Stock
+# Sistema de Gestión de Stock
 
-Este proyecto Python automatiza la descarga, procesamiento y generación de informes de stock, así como la creación de archivos JSON para diversas aplicaciones.
+**Sistema ETL Unificado** que automatiza la descarga, procesamiento y generación de informes de stock. Genera TODOS los reportes en un solo directorio centralizado (`outputs/reports/`), eliminando resultados dispersos y proporcionando un manejo unificado de errores.
 
 ## Características Principales
 
@@ -10,10 +10,14 @@ Este proyecto Python automatiza la descarga, procesamiento y generación de info
     *   **Reporte Histórico de Stock General (VES):** Genera un informe Excel con el histórico de stock referencial, incluyendo una columna de tendencia.
     *   **Reporte de Stock General por Línea:** Crea informes Excel detallados por línea de producto con formato de tabla.
     *   **Reporte de Códigos Especiales:** Genera un informe Excel para códigos especiales, incluyendo stock de almacenes y una columna de diferencia (Hoy - Ayer).
+    *   **Reporte de Colores por Código (`stock_color.xlsx`):** Genera un informe en formato Excel que desagrega el stock por color para cada código de producto. El script `scripts/generate_colores_json.py` procesa el reporte original (`STOCK_MODELO_COLOR.xls`), que a menudo contiene celdas combinadas, y lo transforma en un formato "tidy" o uniforme. En este formato, cada fila representa una combinación única de producto-color, repitiendo el código y la descripción del producto para cada color disponible. Esto facilita el análisis y la manipulación de los datos.
 *   **Generación de Archivos JSON:**
     *   `productos_local.json`: Archivo JSON para aplicaciones web (IndexedDB).
     *   `stock_generales.json`: Archivo JSON para Firestore/Dialogflow con validación de esquema.
+    *   `colores_por_codigo.json`: A partir del mismo proceso, se genera este archivo JSON. Agrupa todos los colores y sus respectivos stocks bajo una única clave, que es el código del producto. Esto proporciona una estructura anidada ideal para integraciones con aplicaciones web o APIs.
+    *   `feriados.json`: Archivo JSON con feriados peruanos.
 *   **Instantáneas Diarias de Stock:** Guarda un snapshot diario del stock consolidado para análisis histórico, asegurando que solo se tome una instantánea por día al inicio del proceso.
+*   **Scripts Especializados:** Scripts independientes para generar reportes específicos (colores, feriados) con ejecución programada.
 
 ## Prerrequisitos
 
@@ -62,18 +66,68 @@ Sigue estos pasos para configurar el proyecto:
 
 ## Uso
 
-Para ejecutar el proceso completo de gestión de stock, simplemente ejecuta el script principal:
+### Proceso Unificado (Recomendado)
+Para ejecutar el proceso completo de gestión de stock, usa el orquestador unificado:
 
 ```bash
-python main.py
+# Proceso completo unificado (recomendado)
+python orchestrator.py --full-etl
+
+# O usando el archivo .bat
+run_stock_process.bat
 ```
 
-El script realizará las siguientes operaciones en orden:
-1.  Limpieza de archivos temporales.
-2.  Carga y procesamiento de datos fuente.
-3.  Consolidación de datos.
-4.  Guardado de la instantánea diaria de stock (si no existe una para el día actual).
-5.  Generación de todos los informes y archivos JSON.
+El orquestador ejecuta automáticamente:
+1. **ETL Principal** (`main.py`) - Descarga y procesa datos
+2. **Scripts Especializados** - Genera reportes específicos
+3. **Consolidación** - Unifica todos los resultados en `outputs/reports/`
+4. **Entrega Automática** - Envía archivos a servidores configurados
+
+### Scripts Individuales (Desarrollo)
+Para desarrollo y pruebas específicas:
+
+```bash
+# ETL principal solo
+python main.py
+
+# Scripts especializados (solo cuando hay cambios)
+python scripts/generate_colores_json.py   # Solo colores
+python scripts/generate_feriados_json.py  # Solo feriados
+```
+
+### Lógica Inteligente del Sistema
+El orquestador ejecuta procesos de manera inteligente:
+
+- **📊 Stock (ETL Principal):** Siempre se ejecuta (datos diarios)
+- **🎨 Colores:** Solo cuando cambian los datos de colores
+- **📅 Feriados:** Solo cuando cambia el archivo de feriados
+
+Esto optimiza el rendimiento y evita procesamiento innecesario.
+
+### Programación Automática (Windows Task Scheduler)
+Configura el orquestador para ejecución automática:
+- **Proceso completo:** Una vez al día (7:00 AM)
+- **Comando:** `python orchestrator.py --full-etl`
+- **Directorio:** `C:\ruta\completa\al\proyecto`
+
+## Archivos Generados
+
+**TODOS los archivos se generan en un solo directorio unificado:** `outputs/reports/`
+
+### Reportes Excel
+- `reporte_stock_hoy.xlsx` - Reporte principal de stock diario
+- `reporte_especiales.xlsx` - Reporte de códigos especiales
+- `stock_color.xlsx` - Reporte de colores por código
+- `reporte_historico_general_VES.xlsx` - Reporte histórico VES
+
+### Archivos JSON
+- `productos_local.json` - JSON para aplicaciones web (IndexedDB)
+- `stock_generales.json` - JSON para Firestore/Dialogflow
+- `colores_por_codigo.json` - JSON con stock por colores agrupado
+- `feriados.json` - JSON con feriados peruanos
+
+### Entrega Automática al Desktop
+- `reporte_stock_hoy.xlsx` se copia automáticamente a `C:\Users\[usuario]\Desktop\`
 
 ## Estructura del Proyecto
 
@@ -81,48 +135,62 @@ El script realizará las siguientes operaciones en orden:
 .
 ├── .env.example             # Ejemplo de archivo de variables de entorno
 ├── .gitignore               # Archivos y directorios ignorados por Git
-├── app.py                   # (Posiblemente lógica de aplicación o utilidades)
-├── config.py                # Configuración del proyecto (rutas, etc.)
-├── data_loader.py           # Funciones para cargar y procesar datos
-├── main.py                  # Punto de entrada principal del script
-├── README.md                # Este archivo
-├── report_generator.py      # Funciones para generar los diferentes informes
+├── README.md                # Documentación del sistema unificado
 ├── requirements.txt         # Dependencias del proyecto
-├── run_script.bat           # Script de Windows para ejecutar el proceso
-├── schemas.py               # Definiciones de esquemas (e.g., Pydantic)
-├── storage_manager.py       # (Posiblemente lógica de almacenamiento de datos)
-├── utils.py                 # Funciones de utilidad
-├── __pycache__/             # Caché de Python (ignorado por Git)
-├── .git/                    # Repositorio Git (ignorado por Git)
-├── datos/                   # Archivos de datos de entrada (ignorados por Git)
-│   ├── base_total.xls
-│   ├── codigos_especiales.xlsx
-│   ├── codigos_generales.xlsx
-│   └── lineas_a_procesar.xlsx
-├── procesamiento/           # Archivos intermedios generados (ignorados por Git)
-│   ├── historicos/
-│   ├── logs/
-│   └── temp/
-├── salida/                  # Informes y archivos de salida generados (ignorados por Git)
-├── storage_config/          # (Posiblemente configuración de almacenamiento)
-└── venv/                    # Entorno virtual de Python (ignorado por Git)
+├── run_stock_process.bat    # 🚀 Proceso ETL completo unificado
+├── orchestrator.py          # 🏗️ Orquestador principal (lógica inteligente)
+├── main.py                  # 📊 ETL principal (descarga y procesa datos)
+├── config/                  # ⚙️ Configuración centralizada
+│   ├── unified_config.json  # Configuración unificada
+│   └── config.py           # Configuración modular
+├── modules/                 # 🔧 Módulos especializados
+│   ├── etl_processor.py    # Procesador ETL
+│   ├── report_generator.py # Generador de reportes
+│   ├── file_delivery.py    # Sistema de entrega
+│   └── data_validator.py   # Validador de datos
+├── scripts/                 # 🐍 Scripts especializados
+│   ├── run_complete_process.py
+│   ├── generate_colores_json.py
+│   ├── generate_feriados_json.py
+│   └── scheduler_process.py
+├── data_sources/            # 📥 Datos de entrada organizados
+├── outputs/reports/         # 🎯 TODOS LOS RESULTADOS UNIFICADOS
+├── procesamiento/           # 🔄 Archivos intermedios
+├── logs/                    # 📋 Archivos de log
+└── venv/                    # 🐍 Entorno virtual
 ```
 
-## Configuración (`config.py`)
+## Configuración
 
-El archivo `config.py` contiene la configuración central del proyecto. Aquí se definen rutas de directorios, nombres de archivos de salida y otras configuraciones importantes.
+### `config/unified_config.json` - Configuración Unificada
+Archivo de configuración centralizada que controla todo el sistema:
+- **Orquestador:** Configuración del sistema unificado
+- **Reportes:** Definición de todos los tipos de reportes
+- **Entrega:** Configuración de servidores de destino
+- **Directorios:** Rutas centralizadas y flexibles
 
-*   `settings.REQUIRED_DIRS`: Directorios que el script creará si no existen.
-*   `settings.OUTPUT_FINAL_REPORT_EXCEL`: Ruta del reporte de stock general.
-*   `settings.OUTPUT_ESPECIALES_REPORT_EXCEL`: Ruta del reporte de códigos especiales.
-*   `settings.OUTPUT_PRODUCTOS_LOCAL_JSON`: Ruta del archivo JSON para productos locales.
-*   `settings.STOCK_GENERALES_FILE`: Ruta del archivo JSON de stock general.
-*   `settings.HISTORICOS_DIR`: Directorio para guardar las instantáneas históricas de stock.
-*   `settings.INPUT_ESPECIALES_EXCEL`: Ruta de la plantilla de códigos especiales.
-*   `settings.DATA_STOCK_COMPLETO_FILE`: Ruta del archivo Excel con el stock consolidado.
-*   `settings.TABLE_STYLES`: Estilos de tabla utilizados en los reportes Excel.
+### `config/config.py` - Configuración Modular
+Configuración específica para módulos especializados:
+- **ETL Processor:** Configuración del procesamiento de datos
+- **Report Generator:** Configuración de generación de reportes
+- **File Delivery:** Configuración de entrega de archivos
+
+### Variables Importantes
+*   `outputs/reports/`: **Directorio unificado** para TODOS los resultados
+*   `data_sources/`: Directorio de datos de entrada
+*   `logs/`: Directorio de archivos de log
+*   `procesamiento/`: Archivos intermedios de procesamiento
 
 ## Notas Importantes
 
-*   **Instantáneas de Stock:** La función `save_daily_stock_snapshot` está diseñada para tomar una única instantánea del stock por día. Esto asegura la precisión de los datos históricos y de tendencia al comparar el stock inicial del día con el stock de días anteriores. Si el script se ejecuta varias veces en un mismo día, solo la primera ejecución creará la instantánea diaria.
-*   **Archivos Ignorados:** Los directorios `datos/`, `procesamiento/` y `salida/` están configurados en `.gitignore` para no ser incluidos en el control de versiones de Git, ya que contienen datos de entrada, archivos intermedios y resultados generados, respectivamente.
+*   **Sistema Unificado:** El orquestador (`orchestrator.py`) coordina TODOS los procesos y consolida los resultados en un solo directorio (`outputs/reports/`). Esto elimina la dispersión de archivos y proporciona un manejo centralizado de errores.
+
+*   **Instantáneas de Stock:** La función `save_daily_stock_snapshot` toma una única instantánea del stock por día, asegurando precisión en los datos históricos y de tendencia.
+
+*   **Directorio Unificado:** TODOS los archivos de resultado se generan en `outputs/reports/`, facilitando el acceso y mantenimiento.
+
+*   **Entrega Automática:** Solo `reporte_stock_hoy.xlsx` se copia automáticamente al desktop del usuario.
+
+*   **Arquitectura Modular:** Los módulos especializados (`etl_processor`, `report_generator`, `file_delivery`, `data_validator`) permiten mantenibilidad y escalabilidad.
+
+*   **Archivos Ignorados:** Los directorios `data_sources/`, `procesamiento/`, `outputs/`, `logs/` y `temp/` están en `.gitignore` ya que contienen datos sensibles, intermedios y resultados generados.

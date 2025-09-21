@@ -1,0 +1,193 @@
+{
+  "project": {
+    "name": "Sistema de Gestión de Stock",
+    "version": "2.0",
+    "description": "Sistema unificado de gestión de stock con orquestador centralizado"
+  },
+  "directories": {
+    "data_sources": "data_sources",
+    "outputs": "outputs",
+    "reports": "outputs/reports",
+    "salida": "salida",
+    "logs": "logs",
+    "temp": ".temp",
+    "modules": "modules"
+  },
+  "reports": {
+    "stock_general": {
+      "name": "Stock General",
+      "description": "Reportes principales de stock",
+      "files": [
+        "reporte_stock_hoy.xlsx",
+        "productos_local.json",
+        "stock_generales.json"
+      ],
+      "frequency": "daily",
+      "dependencies": ["etl_processor"],
+      "enabled": true
+    },
+    "colors": {
+      "name": "Colores por Código",
+      "description": "Análisis de stock por colores",
+      "files": [
+        "stock_color.xlsx",
+        "colores_por_codigo.json"
+      ],
+      "frequency": "daily",
+      "dependencies": ["report_generator"],
+      "enabled": true
+    },
+    "holidays": {
+      "name": "Feriados",
+      "description": "Calendario de feriados peruanos",
+      "files": [
+        "feriados.json"
+      ],
+      "frequency": "on_change",
+      "dependencies": ["report_generator"],
+      "enabled": true
+    },
+    "special": {
+      "name": "Códigos Especiales",
+      "description": "Análisis de códigos especiales",
+      "files": [
+        "reporte_especiales.xlsx"
+      ],
+      "frequency": "daily",
+      "dependencies": ["report_generator"],
+      "enabled": true
+    },
+    "historical": {
+      "name": "Histórico VES",
+      "description": "Análisis histórico de tendencias VES",
+      "files": [
+        "reporte_historico_general_VES.xlsx"
+      ],
+      "frequency": "daily",
+      "dependencies": ["report_generator"],
+      "enabled": true
+    }
+  },
+  "processes": {
+    "etl_main": {
+      "name": "ETL Principal",
+      "description": "Proceso ETL completo con descarga y transformación",
+      "script": "main.py",
+      "timeout": 600,
+      "enabled": true
+    },
+    "colors_processor": {
+      "name": "Procesador de Colores",
+      "description": "Generación de reportes de colores",
+      "script": "scripts/generate_colores_json.py",
+      "timeout": 120,
+      "enabled": true
+    },
+    "holidays_processor": {
+      "name": "Procesador de Feriados",
+      "description": "Generación de calendario de feriados",
+      "script": "scripts/generate_feriados_json.py",
+      "timeout": 60,
+      "enabled": true
+    }
+  },
+  "delivery": {
+    "default_behavior": "auto",
+    "servers": [
+      {
+        "name": "local_desktop",
+        "type": "local",
+        "description": "Escritorio del usuario local",
+        "path": "C:\\Users\\{username}\\Desktop",
+        "files": ["reporte_stock_hoy.xlsx"],
+        "enabled": true,
+        "overwrite": true
+      },
+      {
+        "name": "reports_server",
+        "type": "network",
+        "description": "Servidor de reportes en red",
+        "path": "\\\\server\\reports\\stock",
+        "files": ["*.xlsx", "*.json"],
+        "enabled": false,
+        "credentials": {
+          "domain": "COMPANY",
+          "username": "report_user"
+        }
+      },
+      {
+        "name": "cloud_backup",
+        "type": "s3",
+        "description": "Backup en Amazon S3",
+        "bucket": "company-reports",
+        "region": "us-east-1",
+        "path": "stock/{date}/",
+        "files": ["*.xlsx"],
+        "enabled": false,
+        "retention_days": 90
+      }
+    ]
+  },
+  "monitoring": {
+    "enabled": true,
+    "log_level": "INFO",
+    "metrics": {
+      "execution_time": true,
+      "file_sizes": true,
+      "error_count": true,
+      "success_rate": true
+    },
+    "alerts": {
+      "on_failure": true,
+      "email_recipients": [],
+      "slack_webhook": null
+    }
+  },
+  "scheduler": {
+    "enabled": true,
+    "timezone": "America/Lima",
+    "jobs": [
+      {
+        "name": "daily_etl",
+        "schedule": "0 7 * * 1-6",
+        "command": "python orchestrator.py --full-etl",
+        "enabled": true
+      },
+      {
+        "name": "hourly_colors",
+        "schedule": "0 */1 * * 1-6",
+        "command": "python orchestrator.py --report colors",
+        "enabled": false
+      },
+      {
+        "name": "weekly_backup",
+        "schedule": "0 6 * * 0",
+        "command": "python orchestrator.py --deliver cloud_backup",
+        "enabled": false
+      }
+    ]
+  },
+  "data_sources": {
+    "stock_api": {
+      "url": "https://api.example.com/stock",
+      "timeout": 30,
+      "retry_count": 3
+    },
+    "files": {
+      "codigos_generales": "data_sources/catalogs/codigos_generales.xlsx",
+      "codigos_especiales": "data_sources/catalogs/codigos_especiales.xlsx",
+      "lineas_procesar": "data_sources/catalogs/lineas_a_procesar.xlsx",
+      "feriados": "data_sources/catalogs/feriados.xlsx",
+      "base_total": "data_sources/base_total.xls"
+    }
+  },
+  "validation": {
+    "enabled": true,
+    "rules": {
+      "file_exists": true,
+      "file_not_empty": true,
+      "data_integrity": true,
+      "schema_validation": false
+    }
+  }
+}
