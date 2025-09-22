@@ -98,7 +98,7 @@ def generate_historical_general_stock_report(df_generales_cat: pd.DataFrame, df_
             df_reporte['Tendencia'] = "➖ Sin Datos Históricos (menos de 7 días)"
 
         # Guardar en Excel
-        output_path = os.path.join(settings.SALIDA_DIR, "reporte_historico_general_VES.xlsx")
+        output_path = os.path.join(settings.REPORTES_DIR, "reporte_historico_general_VES.xlsx")
         with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
             sheet_name = 'Historico VES'
             df_reporte.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1, header=False)

@@ -12,7 +12,7 @@ class Settings:
     # === DIRECTORIOS ===
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATOS_DIR = os.path.join(BASE_DIR, "data_sources") # Corregido
-    SALIDA_DIR = os.path.join(BASE_DIR, "salida")
+    SALIDA_DIR = os.path.join(BASE_DIR, "outputs")
     PROCESAMIENTO_DIR = os.path.join(BASE_DIR, "procesamiento")
     LOGS_DIR = os.path.join(PROCESAMIENTO_DIR, "logs")
     HISTORICOS_DIR = os.path.join(PROCESAMIENTO_DIR, "historicos")
@@ -27,11 +27,11 @@ class Settings:
     INPUT_BASE_TOTAL = os.path.join(DATOS_DIR, "base_data", "base_total.xls")
 
     # === ARCHIVOS DE SALIDA (Resultados Finales) ===
-    OUTPUT_FINAL_REPORT_EXCEL = os.path.join(SALIDA_DIR, "reporte_stock_hoy.xlsx")
-    OUTPUT_ESPECIALES_REPORT_EXCEL = os.path.join(SALIDA_DIR, "reporte_especiales.xlsx")
-    OUTPUT_PRODUCTOS_LOCAL_JSON = os.path.join(SALIDA_DIR, "productos_local.json")
-    STOCK_GENERALES_FILE = os.path.join(SALIDA_DIR, "stock_generales.json")
-    REPORTES_DIR = SALIDA_DIR
+    REPORTES_DIR = os.path.join(SALIDA_DIR, "reports")
+    OUTPUT_FINAL_REPORT_EXCEL = os.path.join(REPORTES_DIR, "reporte_stock_hoy.xlsx")
+    OUTPUT_ESPECIALES_REPORT_EXCEL = os.path.join(REPORTES_DIR, "reporte_especiales.xlsx")
+    OUTPUT_PRODUCTOS_LOCAL_JSON = os.path.join(REPORTES_DIR, "productos_local.json")
+    STOCK_GENERALES_FILE = os.path.join(REPORTES_DIR, "stock_generales.json")
     
     # === ARCHIVOS DE PROCESAMIENTO (Archivos de Trabajo) ===
     DATA_STOCK_COMPLETO_FILE = os.path.join(PROCESAMIENTO_DIR, "data_stock_completo.xlsx")
