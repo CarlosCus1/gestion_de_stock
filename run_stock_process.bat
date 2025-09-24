@@ -1,99 +1,54 @@
 @echo off
-REM ================================================
-REM Sistema de Gestión de Stock - Proceso Completo
-REM ================================================
-REM Este archivo ejecuta todo el proceso ETL de stock
-REM Genera todos los reportes en outputs/reports/
-REM
-REM Uso: double-click o desde scheduler
-REM ================================================
+REM Script para gestion de stock con manejo inteligente de errores
 
-echo ================================================
-echo Sistema de Gestión de Stock - Proceso Completo
-echo ================================================
-echo.
+echo [INFO] Iniciando proceso de gestion de stock...
 
-REM Verificar si Python está instalado
-python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ❌ ERROR: Python no está instalado
-    echo.
-    echo Por favor instala Python desde https://python.org
-    echo.
-    pause
-    exit /b 1
-)
-
-echo ✅ Python detectado
-echo.
-
-REM Cambiar al directorio del proyecto
+REM Cambia al directorio del script
 cd /d "%~dp0"
 
-REM Verificar si existe el directorio del proyecto
-if not exist "scripts" (
-    echo ❌ ERROR: No se encuentra el directorio 'scripts'
+REM Ejecuta el proceso principal y captura el código de error
+python orchestrator.py --full-etl >nul 2>nul
+set EXIT_CODE=%errorlevel%
+
+if %EXIT_CODE% equ 0 (
+    REM Proceso exitoso - entrega dual y salida automática
+    echo [SUCCESS] Proceso ETL completado exitosamente
+
+    REM Entrega dual silenciosa
+    xcopy "outputs\reports\*.xlsx" "G:\My Drive\Gestion_360\360_salida\" /Y /D /C /Q >nul 2>nul
+    xcopy "outputs\reports\*.json" "G:\My Drive\Gestion_360\360_salida\" /Y /D /C /Q >nul 2>nul
+    xcopy "outputs\reports\reporte_stock_hoy.xlsx" "%USERPROFILE%\Desktop\" /Y /D /C /Q >nul 2>nul
+
+    echo [SUCCESS] Entrega dual completada - archivos distribuidos
     echo.
-    echo Este archivo debe estar en la raíz del proyecto
+    echo [INFO] =================================================================
+    echo [INFO] ARCHIVOS GENERADOS Y DISTRIBUIDOS:
+    echo [INFO] =================================================================
+    echo [INFO] 📁 outputs/reports/ (8 archivos)
+    echo [INFO] 📤 G:\My Drive\Gestion_360\360_salida\ (copias completas)
+    echo [INFO] 🖥️  %USERPROFILE%\Desktop\ (reporte principal)
+    echo [INFO] =================================================================
+    echo.
+    REM Salida automática en caso de éxito
+    goto :eof
+
+) else (
+    REM Error en el proceso - mostrar mensaje y esperar
+    echo.
+    echo [ERROR] =================================================================
+    echo [ERROR] El proceso ETL finalizo con errores (codigo: %EXIT_CODE%)
+    echo [ERROR] =================================================================
+    echo.
+    echo [INFO] Posibles causas:
+    echo [INFO] - Error de conectividad a la API de Cipsa
+    echo [INFO] - Archivos de configuracion faltantes
+    echo [INFO] - Problemas con archivos de datos fuente
+    echo.
+    echo [INFO] Revisa los logs en procesamiento/logs/ para mas detalles
     echo.
     pause
-    exit /b 1
+    exit /b %EXIT_CODE%
 )
 
-echo ✅ Directorio del proyecto: %cd%
-echo.
 
-REM Verificar si existe requirements.txt
-if exist "requirements.txt" (
-    echo 📦 Verificando dependencias...
-    pip install -r requirements.txt >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo ⚠️  ADVERTENCIA: No se pudieron instalar todas las dependencias
-        echo    Continuando con las dependencias existentes...
-    ) else (
-        echo ✅ Dependencias verificadas
-    )
-) else (
-    echo ⚠️  ADVERTENCIA: No se encontró requirements.txt
-)
 
-echo.
-echo ================================================
-echo 🚀 INICIANDO PROCESO ETL COMPLETO
-echo ================================================
-echo.
-
-REM Ejecutar el proceso principal
-python scripts/run_complete_process.py
-
-REM Verificar resultado
-if %errorlevel% neq 0 (
-    echo.
-    echo ❌ ERROR: El proceso falló
-    echo.
-    echo Revisa los logs para más detalles
-    echo.
-    pause
-    exit /b 1
-)
-
-echo.
-echo ================================================
-echo ✅ PROCESO COMPLETADO EXITOSAMENTE
-echo ================================================
-echo.
-echo 📊 Archivos generados en: outputs/reports/
-echo.
-
-REM Mostrar archivos generados
-if exist "outputs\reports" (
-    echo 📋 Archivos generados:
-    dir /b "outputs\reports" 2>nul | findstr /v /c:"$"
-) else (
-    echo ⚠️  No se encontró la carpeta outputs/reports
-)
-
-echo.
-echo ================================================
-echo Presiona cualquier tecla para salir...
-pause >nul

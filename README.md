@@ -1,23 +1,67 @@
 # Sistema de Gestión de Stock
 
-**Sistema ETL Unificado** que automatiza la descarga, procesamiento y generación de informes de stock. Genera TODOS los reportes en un solo directorio centralizado (`outputs/reports/`), eliminando resultados dispersos y proporcionando un manejo unificado de errores.
+**Sistema ETL Unificado y Resiliente** que automatiza la descarga, procesamiento y generación de informes de stock con **alta disponibilidad** y **recuperación automática**. Genera TODOS los reportes en un solo directorio centralizado (`outputs/reports/`), con entrega dual opcional a Google Drive.
+
+## ✨ Mejoras Implementadas
+
+### 🚀 **Resiliencia y Recuperación**
+- **Descarga API con reintentos**: Hasta 3 reintentos con timeout progresivo
+- **Fallback automático**: Usa datos anteriores si la API falla
+- **Detección de cambios**: Solo procesa cuando hay datos nuevos
+- **Recuperación automática**: Se reintenta sin intervención manual
+
+### 📤 **Entrega Dual Inteligente**
+- **Archivos originales**: Se mantienen en `outputs/reports/`
+- **Copias sincronizadas**: Opcional a Google Drive para compartir
+- **Manejo de errores**: Continúa aunque falle la copia secundaria
+- **Reintentos programados**: Si Google Drive no está disponible
+
+### 🔧 **Portabilidad Mejorada**
+- **Rutas relativas**: Funciona en cualquier directorio
+- **Multiplataforma**: Compatible con Windows/Linux/Mac
+- **Configuración portable**: Variables de entorno flexibles
+- **Template incluido**: `.env.example` para nuevos usuarios
 
 ## Características Principales
 
-*   **Descarga y Procesamiento de Datos:** Obtiene y parsea informes de stock (`REPT_STOCK`).
-*   **Carga y Fusión de Catálogos:** Carga catálogos de productos generales y especiales, y los fusiona con los datos de stock.
-*   **Generación de Informes Excel:**
-    *   **Reporte Histórico de Stock General (VES):** Genera un informe Excel con el histórico de stock referencial, incluyendo una columna de tendencia.
-    *   **Reporte de Stock General por Línea:** Crea informes Excel detallados por línea de producto con formato de tabla.
-    *   **Reporte de Códigos Especiales:** Genera un informe Excel para códigos especiales, incluyendo stock de almacenes y una columna de diferencia (Hoy - Ayer).
-    *   **Reporte de Colores por Código (`stock_color.xlsx`):** Genera un informe en formato Excel que desagrega el stock por color para cada código de producto. El script `scripts/generate_colores_json.py` procesa el reporte original (`STOCK_MODELO_COLOR.xls`), que a menudo contiene celdas combinadas, y lo transforma en un formato "tidy" o uniforme. En este formato, cada fila representa una combinación única de producto-color, repitiendo el código y la descripción del producto para cada color disponible. Esto facilita el análisis y la manipulación de los datos.
-*   **Generación de Archivos JSON:**
-    *   `productos_local.json`: Archivo JSON para aplicaciones web (IndexedDB).
-    *   `stock_generales.json`: Archivo JSON para Firestore/Dialogflow con validación de esquema.
-    *   `colores_por_codigo.json`: A partir del mismo proceso, se genera este archivo JSON. Agrupa todos los colores y sus respectivos stocks bajo una única clave, que es el código del producto. Esto proporciona una estructura anidada ideal para integraciones con aplicaciones web o APIs.
-    *   `feriados.json`: Archivo JSON con feriados peruanos.
-*   **Instantáneas Diarias de Stock:** Guarda un snapshot diario del stock consolidado para análisis histórico, asegurando que solo se tome una instantánea por día al inicio del proceso.
-*   **Scripts Especializados:** Scripts independientes para generar reportes específicos (colores, feriados) con ejecución programada.
+### 🔄 **Procesamiento Resiliente**
+*   **Descarga API con Reintentos:** Hasta 3 reintentos con timeout progresivo (30s → 60s → 120s)
+*   **Fallback Automático:** Usa datos del día/semana anterior si la API falla
+*   **Detección de Cambios:** Solo procesa cuando hay datos nuevos significativos
+*   **Recuperación Automática:** Se reintenta sin intervención manual
+
+### 📊 **Procesamiento de Datos**
+*   **Descarga y Procesamiento de Datos:** Obtiene y parsea informes de stock (`REPT_STOCK`) con validación
+*   **Carga y Fusión de Catálogos:** Carga catálogos de productos generales y especiales, y los fusiona con los datos de stock
+*   **Validación de Integridad:** Verifica que los datos descargados sean útiles y consistentes
+
+### 📈 **Generación de Informes Excel**
+*   **Reporte Histórico de Stock General (VES):** Genera un informe Excel con el histórico de stock referencial, incluyendo una columna de tendencia
+*   **Reporte de Stock General por Línea:** Crea informes Excel detallados por línea de producto con formato de tabla
+*   **Reporte de Códigos Especiales:** Genera un informe Excel para códigos especiales, incluyendo stock de almacenes y una columna de diferencia (Hoy - Ayer)
+*   **Reporte de Colores por Código (`stock_color.xlsx`):** Genera un informe en formato Excel que desagrega el stock por color para cada código de producto
+
+### 📋 **Generación de Archivos JSON**
+*   `productos_local.json`: Archivo JSON para aplicaciones web (IndexedDB)
+*   `stock_generales.json`: Archivo JSON para Firestore/Dialogflow con validación de esquema
+*   `colores_por_codigo.json`: JSON con stock por colores agrupado por código
+*   `feriados.json`: Archivo JSON con feriados peruanos
+
+### 💾 **Gestión de Datos Históricos**
+*   **Instantáneas Diarias de Stock:** Guarda un snapshot diario del stock consolidado para análisis histórico
+*   **Una Instantánea por Día:** Asegura que solo se tome una instantánea por día al inicio del proceso
+*   **Histórico Inteligente:** Mantiene datos históricos para fallback y análisis de tendencias
+
+### 📤 **Entrega Dual Inteligente**
+*   **Archivos Originales:** Se mantienen en `outputs/reports/` (proyecto)
+*   **Copias Sincronizadas:** Opcional a Google Drive para compartir con el equipo
+*   **Manejo de Errores:** Continúa aunque falle la copia secundaria
+*   **Reintentos Programados:** Si Google Drive no está disponible, reintenta automáticamente
+
+### 🏗️ **Arquitectura Modular**
+*   **Scripts Especializados:** Scripts independientes para generar reportes específicos (colores, feriados)
+*   **Módulos Especializados:** `etl_processor`, `report_generator`, `file_delivery`, `data_validator`
+*   **Configuración Unificada:** Toda la configuración centralizada en `config/unified_config.json`
 
 ## Prerrequisitos
 
@@ -58,11 +102,33 @@ Sigue estos pasos para configurar el proyecto:
     Crea un archivo `.env` en la raíz del proyecto (al mismo nivel que `main.py`) basado en `.env.example`. Este archivo contendrá variables de entorno sensibles o específicas de tu configuración.
 
     Ejemplo de `.env.example`:
+    ```env
+    # Configuración de resiliencia
+    API_TIMEOUT_BASE=30
+    API_MAX_RETRIES=3
+    ENABLE_FALLBACK=true
+
+    # Configuración de entrega dual
+    ENABLE_DUAL_DELIVERY=true
+    GDRIVE_ROOT=${USERPROFILE}/Google Drive
+    GDRIVE_PROJECT_FOLDER=Gestion_360
+
+    # Configuración de entorno
+    ENVIRONMENT=development
+    LOG_LEVEL=INFO
     ```
-    SUNAT_API_TOKEN=tu_token_aqui
-    # Otras variables de entorno si son necesarias
-    ```
-    Asegúrate de reemplazar `tu_token_aqui` con tu token real de la API de SUNAT.
+
+    ### Variables de Entorno Importantes
+
+    | Variable | Descripción | Valor por Defecto |
+    |----------|-------------|-------------------|
+    | `API_TIMEOUT_BASE` | Timeout base para descarga API | 30 segundos |
+    | `API_MAX_RETRIES` | Número máximo de reintentos | 3 |
+    | `ENABLE_FALLBACK` | Usar datos anteriores si API falla | true |
+    | `ENABLE_DUAL_DELIVERY` | Copiar archivos a Google Drive | true |
+    | `GDRIVE_ROOT` | Ruta raíz de Google Drive | `${USERPROFILE}/Google Drive` |
+    | `ENVIRONMENT` | Entorno (development/production) | development |
+    | `LOG_LEVEL` | Nivel de logging | INFO |
 
 ## Uso
 
@@ -126,8 +192,11 @@ Configura el orquestador para ejecución automática:
 - `colores_por_codigo.json` - JSON con stock por colores agrupado
 - `feriados.json` - JSON con feriados peruanos
 
-### Entrega Automática al Desktop
-- `reporte_stock_hoy.xlsx` se copia automáticamente a `C:\Users\[usuario]\Desktop\`
+### Entrega Dual Inteligente
+- **Archivos Originales**: Se mantienen en `outputs/reports/` (proyecto)
+- **Copias Sincronizadas**: Opcional a Google Drive (`G:\My Drive\Gestion_360\360_salida`)
+- **Manejo de Errores**: Si Google Drive no está disponible, continúa con archivos originales
+- **Reintentos**: Si falla la copia, se reintenta automáticamente en próximas ejecuciones
 
 ## Estructura del Proyecto
 
@@ -183,14 +252,30 @@ Configuración específica para módulos especializados:
 
 ## Notas Importantes
 
-*   **Sistema Unificado:** El orquestador (`orchestrator.py`) coordina TODOS los procesos y consolida los resultados en un solo directorio (`outputs/reports/`). Esto elimina la dispersión de archivos y proporciona un manejo centralizado de errores.
+### 🚀 **Sistema Resiliente y Robusto**
+*   **Alta Disponibilidad:** El sistema nunca se detiene por fallos temporales de la API
+*   **Recuperación Automática:** Reintenta automáticamente sin intervención manual
+*   **Fallback Inteligente:** Usa datos anteriores si la API no está disponible
+*   **Detección de Cambios:** Solo procesa cuando hay datos nuevos significativos
 
-*   **Instantáneas de Stock:** La función `save_daily_stock_snapshot` toma una única instantánea del stock por día, asegurando precisión en los datos históricos y de tendencia.
+### 💾 **Gestión de Datos**
+*   **Instantáneas de Stock:** La función `save_daily_stock_snapshot` toma una única instantánea del stock por día
+*   **Histórico Inteligente:** Mantiene datos históricos para fallback y análisis de tendencias
+*   **Validación de Integridad:** Verifica que los datos descargados sean útiles y consistentes
 
-*   **Directorio Unificado:** TODOS los archivos de resultado se generan en `outputs/reports/`, facilitando el acceso y mantenimiento.
+### 📤 **Entrega Dual Inteligente**
+*   **Archivos Originales:** Se mantienen en `outputs/reports/` (proyecto)
+*   **Copias Sincronizadas:** Opcional a Google Drive para compartir con el equipo
+*   **Manejo de Errores:** Continúa aunque falle la copia secundaria
+*   **Reintentos Programados:** Si Google Drive no está disponible, reintenta automáticamente
 
-*   **Entrega Automática:** Solo `reporte_stock_hoy.xlsx` se copia automáticamente al desktop del usuario.
+### 🏗️ **Arquitectura y Mantenimiento**
+*   **Sistema Unificado:** El orquestador coordina TODOS los procesos y consolida los resultados
+*   **Arquitectura Modular:** Módulos especializados permiten mantenibilidad y escalabilidad
+*   **Configuración Portable:** Funciona en cualquier directorio y sistema operativo
+*   **Logging Completo:** Registros detallados para monitoreo y debugging
 
-*   **Arquitectura Modular:** Los módulos especializados (`etl_processor`, `report_generator`, `file_delivery`, `data_validator`) permiten mantenibilidad y escalabilidad.
-
-*   **Archivos Ignorados:** Los directorios `data_sources/`, `procesamiento/`, `outputs/`, `logs/` y `temp/` están en `.gitignore` ya que contienen datos sensibles, intermedios y resultados generados.
+### 📁 **Estructura de Archivos**
+*   **Archivos Ignorados:** Los directorios `data_sources/`, `procesamiento/`, `outputs/`, `logs/` están en `.gitignore`
+*   **Template Incluido:** `.env.example` para configuración fácil en nuevos entornos
+*   **Documentación Completa:** README actualizado con todas las características nuevas

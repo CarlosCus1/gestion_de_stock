@@ -11,27 +11,51 @@ class Settings:
     """
     # === DIRECTORIOS ===
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATOS_DIR = os.path.join(BASE_DIR, "data_sources") # Corregido
-    SALIDA_DIR = os.path.join(BASE_DIR, "outputs")
-    PROCESAMIENTO_DIR = os.path.join(BASE_DIR, "procesamiento")
+    DATOS_DIR = os.getenv('DATA_SOURCES_DIR', os.path.join(BASE_DIR, "data_sources")) # Corregido
+    OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
+    PROCESAMIENTO_DIR = os.getenv('PROCESAMIENTO_DIR', os.path.join(BASE_DIR, "procesamiento"))
     LOGS_DIR = os.path.join(PROCESAMIENTO_DIR, "logs")
     HISTORICOS_DIR = os.path.join(PROCESAMIENTO_DIR, "historicos")
     TEMP_DIR = os.path.join(PROCESAMIENTO_DIR, "temp")
     
-    REQUIRED_DIRS = [os.path.join(DATOS_DIR, "catalogs"), os.path.join(DATOS_DIR, "base_data"), SALIDA_DIR, PROCESAMIENTO_DIR, LOGS_DIR, HISTORICOS_DIR, TEMP_DIR]
+    REQUIRED_DIRS = [os.path.join(DATOS_DIR, "catalogs"), os.path.join(DATOS_DIR, "base_data"), OUTPUTS_DIR, PROCESAMIENTO_DIR, LOGS_DIR, HISTORICOS_DIR, TEMP_DIR]
 
     # === ARCHIVOS DE ENTRADA ===
     INPUT_GENERALES_EXCEL = os.path.join(DATOS_DIR, "catalogs", "codigos_generales.xlsx")
     INPUT_ESPECIALES_EXCEL = os.path.join(DATOS_DIR, "catalogs", "codigos_especiales.xlsx")
     INPUT_LINES_TO_PROCESS_EXCEL = os.path.join(DATOS_DIR, "catalogs", "lineas_a_procesar.xlsx")
     INPUT_BASE_TOTAL = os.path.join(DATOS_DIR, "base_data", "base_total.xls")
+    INPUT_FERIADOS_EXCEL = os.path.join(DATOS_DIR, "catalogs", "feriados.xlsx")
+    INPUT_COLORES_EXCEL = os.path.join(DATOS_DIR, "raw_reports", "STOCK_MODELO_COLOR.xls")
+
+    # === CONFIGURACIÓN API (para app.py) ===
+    API_HOST = os.getenv("API_HOST", "0.0.0.0")
+    API_PORT = int(os.getenv("API_PORT", "5000"))
+    API_DEBUG = os.getenv("API_DEBUG", "False").lower() == "true"
+
+    # === CONFIGURACIÓN DE DESCARGA RESILIENTE ===
+    API_TIMEOUT_BASE = int(os.getenv("API_TIMEOUT_BASE", "30"))
+    API_MAX_RETRIES = int(os.getenv("API_MAX_RETRIES", "3"))
+    API_RETRY_DELAYS = [60, 180, 300]  # Segundos entre reintentos
+
+    # === CONFIGURACIÓN DE ENTREGA DUAL ===
+    ENABLE_DUAL_DELIVERY = os.getenv("ENABLE_DUAL_DELIVERY", "true").lower() == "true"
+    GDRIVE_SALIDA_PATH = os.getenv("GDRIVE_SALIDA_PATH", "G:\\My Drive\\Gestion_360\\360_salida")
+    GDRIVE_BASE_INICIO_PATH = os.getenv("GDRIVE_BASE_INICIO_PATH", "G:\\My Drive\\Gestion_360\\360_base_inicio")
+
+    # === CONFIGURACIÓN DE FALLBACK ===
+    ENABLE_FALLBACK = os.getenv("ENABLE_FALLBACK", "true").lower() == "true"
+    FALLBACK_DAYS_BACK = int(os.getenv("FALLBACK_DAYS_BACK", "7"))
 
     # === ARCHIVOS DE SALIDA (Resultados Finales) ===
-    REPORTES_DIR = os.path.join(SALIDA_DIR, "reports")
+    REPORTES_DIR = os.getenv('REPORTS_DIR', os.path.join(OUTPUTS_DIR, "reports"))
     OUTPUT_FINAL_REPORT_EXCEL = os.path.join(REPORTES_DIR, "reporte_stock_hoy.xlsx")
     OUTPUT_ESPECIALES_REPORT_EXCEL = os.path.join(REPORTES_DIR, "reporte_especiales.xlsx")
     OUTPUT_PRODUCTOS_LOCAL_JSON = os.path.join(REPORTES_DIR, "productos_local.json")
     STOCK_GENERALES_FILE = os.path.join(REPORTES_DIR, "stock_generales.json")
+    OUTPUT_FERIADOS_JSON = os.path.join(REPORTES_DIR, "feriados.json")
+    OUTPUT_COLORES_XLSX = os.path.join(REPORTES_DIR, "stock_color.xlsx")
+    OUTPUT_COLORES_JSON = os.path.join(REPORTES_DIR, "colores_por_codigo.json")
     
     # === ARCHIVOS DE PROCESAMIENTO (Archivos de Trabajo) ===
     DATA_STOCK_COMPLETO_FILE = os.path.join(PROCESAMIENTO_DIR, "data_stock_completo.xlsx")

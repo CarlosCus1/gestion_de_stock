@@ -8,9 +8,9 @@
     "data_sources": "data_sources",
     "outputs": "outputs",
     "reports": "outputs/reports",
-    "salida": "salida",
-    "logs": "logs",
-    "temp": ".temp",
+    "logs": "procesamiento/logs",
+    "temp": "procesamiento/temp",
+    "historicos": "procesamiento/historicos",
     "modules": "modules"
   },
   "reports": {
@@ -92,14 +92,38 @@
     }
   },
   "delivery": {
-    "default_behavior": "auto",
+    "default_behavior": "dual",
+    "primary_destination": {
+      "name": "project_outputs",
+      "type": "local",
+      "description": "Archivos originales del proyecto",
+      "path": "outputs/reports",
+      "behavior": "generate"
+    },
+    "secondary_destination": {
+      "name": "google_drive",
+      "type": "local",
+      "description": "Copia en Google Drive para compartir",
+      "path": "G:\\My Drive\\Gestion_360\\360_salida",
+      "behavior": "copy_overwrite",
+      "enabled": true
+    },
     "servers": [
       {
         "name": "local_desktop",
         "type": "local",
-        "description": "Escritorio del usuario local",
+        "description": "Solo reporte principal en escritorio",
         "path": "C:\\Users\\{username}\\Desktop",
         "files": ["reporte_stock_hoy.xlsx"],
+        "enabled": true,
+        "overwrite": true
+      },
+      {
+        "name": "google_drive",
+        "type": "local",
+        "description": "Copia completa en Google Drive",
+        "path": "G:\\My Drive\\Gestion_360\\360_salida",
+        "files": ["*.xlsx", "*.json"],
         "enabled": true,
         "overwrite": true
       },
@@ -169,7 +193,7 @@
   },
   "data_sources": {
     "stock_api": {
-      "url": "https://api.example.com/stock",
+      "url": "CONFIGURADO_EN_.ENV",
       "timeout": 30,
       "retry_count": 3
     },

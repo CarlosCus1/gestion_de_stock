@@ -201,6 +201,12 @@ class FileDelivery:
         Returns:
             Ruta con variables resueltas
         """
+        from dotenv import load_dotenv
+        load_dotenv()
+        desktop_path = os.getenv("DESKTOP_PATH")
+        if desktop_path:
+            path = path.replace("{DESKTOP_PATH}", desktop_path)
+
         import getpass
 
         # Obtener nombre de usuario actual
@@ -219,6 +225,7 @@ class FileDelivery:
         for var, value in date_vars.items():
             path = path.replace(var, value)
 
+        print(f"[DEBUG] Resolved delivery path: {path}")
         return path
 
     def _deliver_to_local(self, source: Path, destination: Path,
@@ -258,7 +265,7 @@ class FileDelivery:
             return False
 
     def _deliver_to_s3(self, source: Path, destination: Path,
-                      config: Dict[str, Any]) -> bool:
+                       config: Dict[str, Any]) -> bool:
         """
         Entrega a Amazon S3.
         """
@@ -273,6 +280,131 @@ class FileDelivery:
 
         except Exception as e:
             self.logger.error(f"❌ Error en entrega S3: {e}")
+            return False
+
+    def _deliver_dual(self, files: List[str], source_dir: Path,
+                     primary_config: Dict[str, Any], secondary_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Entrega archivos a dos destinos (dual delivery).
+        """
+        self.logger.info("🔄 Iniciando entrega dual...")
+
+        result = {
+            "primary": {"success": False, "files": [], "errors": []},
+            "secondary": {"success": False, "files": [], "errors": []},
+            "overall_success": False
+        }
+
+        try:
+            # 1. Entrega primaria (siempre debe funcionar)
+            primary_result = self._deliver_to_primary(files, source_dir, primary_config)
+            result["primary"] = primary_result
+
+            if primary_result["success"]:
+                self.logger.info(f"✅ Entrega primaria exitosa: {len(primary_result['files'])} archivos")
+
+                # 2. Entrega secundaria (con fallback)
+                if self._is_secondary_available(secondary_config):
+                    secondary_result = self._deliver_to_secondary(files, source_dir, secondary_config)
+                    result["secondary"] = secondary_result
+
+                    if secondary_result["success"]:
+                        self.logger.info(f"✅ Entrega secundaria exitosa: {len(secondary_result['files'])} archivos")
+                        result["overall_success"] = True
+                    else:
+                        self.logger.warning(f"⚠️ Entrega secundaria fallida: {secondary_result['errors']}")
+                        result["overall_success"] = True  # Primaria exitosa es suficiente
+                else:
+                    self.logger.warning("⚠️ Destino secundario no disponible - omitiendo")
+                    result["secondary"]["errors"].append("Destino secundario no disponible")
+                    result["overall_success"] = True  # Primaria exitosa es suficiente
+            else:
+                self.logger.error(f"❌ Entrega primaria fallida: {primary_result['errors']}")
+                result["overall_success"] = False
+
+        except Exception as e:
+            self.logger.error(f"❌ Error en entrega dual: {e}")
+            result["overall_success"] = False
+
+        return result
+
+    def _deliver_to_primary(self, files: List[str], source_dir: Path,
+                           config: Dict[str, Any]) -> Dict[str, Any]:
+        """Entrega archivos al destino primario."""
+        result = {"success": True, "files": [], "errors": []}
+
+        for file_path in files:
+            try:
+                src = source_dir / file_path
+                dst = source_dir / file_path  # Los archivos ya están en el destino primario
+
+                if src.exists():
+                    result["files"].append(file_path)
+                    self.logger.debug(f"✅ Archivo primario listo: {file_path}")
+                else:
+                    result["errors"].append(f"Archivo no encontrado: {file_path}")
+                    result["success"] = False
+
+            except Exception as e:
+                result["errors"].append(f"Error con {file_path}: {str(e)}")
+                result["success"] = False
+
+        return result
+
+    def _deliver_to_secondary(self, files: List[str], source_dir: Path,
+                             config: Dict[str, Any]) -> Dict[str, Any]:
+        """Entrega archivos al destino secundario."""
+        result = {"success": True, "files": [], "errors": []}
+
+        try:
+            secondary_path = Path(config.get("path", ""))
+
+            for file_path in files:
+                try:
+                    src = source_dir / file_path
+                    dst = secondary_path / file_path
+
+                    if src.exists():
+                        # Crear directorio si no existe
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+
+                        # Copiar con sobreescritura
+                        import shutil
+                        shutil.copy2(src, dst)
+                        result["files"].append(file_path)
+                        self.logger.debug(f"✅ Copiado a secundario: {file_path}")
+                    else:
+                        result["errors"].append(f"Archivo fuente no encontrado: {file_path}")
+                        result["success"] = False
+
+                except Exception as e:
+                    result["errors"].append(f"Error copiando {file_path}: {str(e)}")
+                    result["success"] = False
+
+        except Exception as e:
+            result["errors"].append(f"Error general en entrega secundaria: {str(e)}")
+            result["success"] = False
+
+        return result
+
+    def _is_secondary_available(self, config: Dict[str, Any]) -> bool:
+        """Verifica si el destino secundario está disponible."""
+        try:
+            secondary_path = Path(config.get("path", ""))
+
+            # Verificar si el directorio existe y es escribible
+            if secondary_path.exists():
+                # Intentar crear un archivo de prueba
+                test_file = secondary_path / ".delivery_test"
+                test_file.write_text("test")
+                test_file.unlink()
+                return True
+            else:
+                self.logger.warning(f"Directorio secundario no existe: {secondary_path}")
+                return False
+
+        except Exception as e:
+            self.logger.warning(f"Destino secundario no disponible: {e}")
             return False
 
     def _deliver_to_ftp(self, source: Path, destination: Path,

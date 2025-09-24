@@ -60,9 +60,8 @@ class StockOrchestrator:
                 "data_sources": str(PROJECT_ROOT / "data_sources"),
                 "outputs": str(PROJECT_ROOT / "outputs"),
                 "reports": str(PROJECT_ROOT / "outputs" / "reports"),
-                "salida": str(PROJECT_ROOT / "salida"),
-                "logs": str(PROJECT_ROOT / "logs"),
-                "temp": str(PROJECT_ROOT / "temp")
+                "logs": str(PROJECT_ROOT / "procesamiento" / "logs"),
+                "temp": str(PROJECT_ROOT / "procesamiento" / "temp")
             },
             "reports": {
                 "stock_general": {
@@ -394,7 +393,7 @@ def deliver_files(files, destination):
         result = {
             "process": "unified_etl",
             "success": True,
-            "files": set(), # Usar un set para evitar duplicados
+            "files": [], # Lista para evitar problemas de serialización JSON
             "errors": [],
             "timestamp": datetime.now().isoformat()
         }
@@ -407,7 +406,10 @@ def deliver_files(files, destination):
             self.logger.info("📊 Ejecutando ETL principal (siempre)...")
             etl_result = self._execute_etl_main()
             if etl_result["success"]:
-                result["files"].update(etl_result["files"])
+                result["files"].extend(etl_result["files"])
+                # Eliminar duplicados manteniendo el orden
+                seen = set()
+                result["files"] = [x for x in result["files"] if not (x in seen or seen.add(x))]
                 self.logger.info(f"✅ ETL principal: {len(etl_result['files'])} archivos generados")
             else:
                 result["success"] = False
@@ -434,20 +436,26 @@ def deliver_files(files, destination):
                 self.logger.info(f"📋 Generando reporte {report_name}...")
                 report_result = report_func()
                 if report_result["success"]:
-                    result["files"].update(report_result["files"])
+                    result["files"].extend(report_result["files"])
+                    # Eliminar duplicados manteniendo el orden
+                    seen = set()
+                    result["files"] = [x for x in result["files"] if not (x in seen or seen.add(x))]
                     self.logger.info(f"✅ Reporte {report_name}: {len(report_result['files'])} archivos generados")
                 else:
                     result["success"] = False
                     result["errors"].append(f"Reporte {report_name} falló: {report_result.get('error', 'Error desconocido')}")
 
-            # 3. Consolidar archivos del directorio salida/ al directorio unificado
-            self.logger.info("🔄 Consolidando archivos en directorio unificado...")
+            # 3. Consolidar archivos del directorio outputs/reports/ al directorio unificado
+            self.logger.info("🔄 Verificando archivos en directorio unificado...")
             consolidation_result = self._consolidate_outputs()
             if consolidation_result["success"]:
-                result["files"].update(consolidation_result["files"])
-                self.logger.info(f"✅ Consolidación: {len(consolidation_result['files'])} archivos movidos")
+                result["files"].extend(consolidation_result["files"])
+                # Eliminar duplicados manteniendo el orden
+                seen = set()
+                result["files"] = [x for x in result["files"] if not (x in seen or seen.add(x))]
+                self.logger.info(f"✅ Verificación: {len(consolidation_result['files'])} archivos encontrados")
             else:
-                self.logger.warning(f"⚠️ Consolidación con advertencias: {consolidation_result.get('warnings', [])}")
+                self.logger.warning(f"⚠️ Verificación con advertencias: {consolidation_result.get('warnings', [])}")
 
             # 4. Validar archivos generados
             self.logger.info("🔍 Validando archivos generados...")
@@ -461,7 +469,7 @@ def deliver_files(files, destination):
             result["errors"].append(f"Error en proceso unificado: {str(e)}")
             self.logger.error(f"💥 Error en proceso ETL unificado: {e}")
 
-        result["files"] = list(result["files"]) # Convertir a lista antes de retornar
+        # Los archivos ya están en formato lista
         return result
 
     def _should_update_colors(self) -> bool:
@@ -587,9 +595,9 @@ def deliver_files(files, destination):
 
             if process.returncode == 0:
                 result["success"] = True
-                # Los archivos se generan en salida/ y luego se consolidan
+                # Los archivos se generan en outputs/reports/ y luego se consolidan
                 result["files"] = ["reporte_stock_hoy.xlsx", "productos_local.json", "stock_generales.json",
-                                 "reporte_especiales.xlsx", "reporte_historico_general_VES.xlsx"]
+                                  "reporte_especiales.xlsx", "reporte_historico_general_VES.xlsx"]
                 self.logger.info("✅ ETL principal ejecutado exitosamente")
             else:
                 result["error"] = f"Exit code {process.returncode}"
@@ -672,40 +680,24 @@ def deliver_files(files, destination):
         return result
 
     def _consolidate_outputs(self) -> Dict[str, Any]:
-        """Consolida todos los archivos de salida en el directorio unificado."""
+        """Verifica que los archivos estén en el directorio unificado."""
         result = {"success": True, "files": [], "warnings": []}
 
         try:
-            import shutil
             reports_dir = Path(self.config["directories"]["reports"])
-            salida_dir = Path(self.config["directories"]["salida"])
 
-            if salida_dir.exists():
-                self.logger.info(f"🔄 Moviendo archivos desde {salida_dir} a {reports_dir}")
+            if reports_dir.exists():
+                self.logger.info(f"🔍 Verificando archivos en {reports_dir}")
 
-                for file_path in salida_dir.glob("*"):
-                    if file_path.is_file():
-                        dest_path = reports_dir / file_path.name
-
-                        # Si el archivo ya existe, sobrescribirlo
-                        if dest_path.exists():
-                            dest_path.unlink()
-
-                        shutil.move(str(file_path), str(dest_path))
+                for file_path in reports_dir.glob("*"):
+                    if file_path.is_file() and file_path.suffix in ['.xlsx', '.json']:
                         result["files"].append(file_path.name)
-                        self.logger.info(f"✅ Movido: {file_path.name}")
-
-                # Limpiar directorio salida si está vacío
-                try:
-                    salida_dir.rmdir()
-                    self.logger.info("🗑️ Directorio salida/ limpiado")
-                except OSError:
-                    self.logger.warning("⚠️ Directorio salida/ no pudo ser eliminado (no vacío)")
+                        self.logger.debug(f"✅ Encontrado: {file_path.name}")
 
         except Exception as e:
             result["success"] = False
-            result["warnings"].append(f"Error en consolidación: {str(e)}")
-            self.logger.error(f"💥 Error consolidando outputs: {e}")
+            result["warnings"].append(f"Error en verificación: {str(e)}")
+            self.logger.error(f"💥 Error verificando outputs: {e}")
 
         return result
 

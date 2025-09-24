@@ -32,8 +32,8 @@ class DataValidator:
         return {
             "min_file_size": 100,  # Bytes mínimos
             "required_files": [
-                "salida/reporte_stock_hoy.xlsx",
-                "salida/productos_local.json"
+                "outputs/reports/reporte_stock_hoy.xlsx",
+                "outputs/reports/productos_local.json"
             ],
             "json_schema_check": False,  # Por ahora desactivado
             "excel_structure_check": True

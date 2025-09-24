@@ -106,11 +106,11 @@ class ETLProcessor:
         """
         # Archivos que típicamente genera el ETL
         expected_files = [
-            "salida/reporte_stock_hoy.xlsx",
-            "salida/productos_local.json",
-            "salida/stock_generales.json",
-            "salida/reporte_especiales.xlsx",
-            "salida/reporte_historico_general_VES.xlsx"
+            "outputs/reports/reporte_stock_hoy.xlsx",
+            "outputs/reports/productos_local.json",
+            "outputs/reports/stock_generales.json",
+            "outputs/reports/reporte_especiales.xlsx",
+            "outputs/reports/reporte_historico_general_VES.xlsx"
         ]
 
         generated = []
@@ -140,8 +140,8 @@ class ETLProcessor:
 
         # Archivos críticos que deben existir
         critical_files = [
-            "salida/reporte_stock_hoy.xlsx",
-            "salida/productos_local.json"
+            "outputs/reports/reporte_stock_hoy.xlsx",
+            "outputs/reports/productos_local.json"
         ]
 
         for file_path in critical_files:

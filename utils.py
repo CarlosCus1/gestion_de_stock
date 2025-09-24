@@ -6,6 +6,8 @@ import secrets
 import time
 from functools import wraps
 
+from config import settings
+
 def format_file_size(size_bytes):
     if size_bytes == 0:
         return "0B"
@@ -78,3 +80,15 @@ class TempURLManager:
 
     def get_file_path(self, token):
         return self.urls[token]["file_path"] if self.is_valid_url(token) else None
+
+def setup_directorios():
+    """Crea todos los directorios necesarios para el proyecto si no existen."""
+    logging.info("Verificando y creando directorios necesarios...")
+    try:
+        for directory in settings.REQUIRED_DIRS:
+            os.makedirs(directory, exist_ok=True)
+            logging.debug(f"Directorio asegurado: {directory}")
+        logging.info("Todos los directorios han sido verificados/creados.")
+    except Exception as e:
+        logging.error(f"Error al crear directorios: {e}", exc_info=True)
+        raise

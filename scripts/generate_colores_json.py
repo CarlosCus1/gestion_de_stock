@@ -60,7 +60,9 @@ def load_codigos_generales():
             logger.warning(f"[WARNING] No se encontró {codigos_file}, procesando todos los códigos")
             return set()
 
-        df_codigos = pd.read_excel(codigos_file)
+        df_codigos = pd.read_excel(codigos_file, header=None)
+        # Assign new headers based on the desired order
+        df_codigos.columns = ['orden', 'codigo', 'u_por_caja']
         codigos_validos = set()
 
         # Extraer códigos no vacíos y normalizarlos
