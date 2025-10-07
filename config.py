@@ -47,6 +47,20 @@ class Settings:
     ENABLE_FALLBACK = os.getenv("ENABLE_FALLBACK", "true").lower() == "true"
     FALLBACK_DAYS_BACK = int(os.getenv("FALLBACK_DAYS_BACK", "7"))
 
+    # === CONFIGURACIÓN DE VALIDACIÓN DE CALIDAD ===
+    DATA_VALIDATION_STRICT = os.getenv("DATA_VALIDATION_STRICT", "true").lower() == "true"
+    CODE_VALIDATION_ENABLED = os.getenv("CODE_VALIDATION_ENABLED", "true").lower() == "true"
+    STAGNATION_THRESHOLD_PCT = float(os.getenv("STAGNATION_THRESHOLD_PCT", "5.0"))
+    STAGNATION_ALERT_DAYS = int(os.getenv("STAGNATION_ALERT_DAYS", "3"))
+    QUALITY_METRICS_ENABLED = os.getenv("QUALITY_METRICS_ENABLED", "true").lower() == "true"
+
+    # === CONFIGURACIÓN DE VALIDACIÓN DE CALIDAD ===
+    DATA_VALIDATION_STRICT = os.getenv("DATA_VALIDATION_STRICT", "true").lower() == "true"
+    CODE_VALIDATION_ENABLED = os.getenv("CODE_VALIDATION_ENABLED", "true").lower() == "true"
+    STAGNATION_THRESHOLD_PCT = float(os.getenv("STAGNATION_THRESHOLD_PCT", "5.0"))
+    STAGNATION_ALERT_DAYS = int(os.getenv("STAGNATION_ALERT_DAYS", "3"))
+    QUALITY_METRICS_ENABLED = os.getenv("QUALITY_METRICS_ENABLED", "true").lower() == "true"
+
     # === ARCHIVOS DE SALIDA (Resultados Finales) ===
     REPORTES_DIR = os.getenv('REPORTS_DIR', os.path.join(OUTPUTS_DIR, "reports"))
     OUTPUT_FINAL_REPORT_EXCEL = os.path.join(REPORTES_DIR, "reporte_stock_hoy.xlsx")
