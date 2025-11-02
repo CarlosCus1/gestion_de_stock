@@ -36,6 +36,7 @@ Sistema completo de automatización para procesamiento de archivos Excel desde e
 ```python
 def check_desktop_file_updated():
     # Verifica archivo en C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls
+    # También verifica C:\Users\ccusi\Desktop\log.txt
     # Compara timestamps con archivo actual
     # Procesa solo cuando hay cambios
 ```

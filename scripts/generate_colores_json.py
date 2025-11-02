@@ -178,6 +178,7 @@ def check_desktop_file_updated():
     Returns: dict con información del estado
     """
     desktop_file = r"C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls"
+    desktop_log = r"C:\Users\ccusi\Desktop\log.txt"
     processed_marker = "logs/desktop_colors_processed.json"
     work_file = "data_sources/raw_reports/STOCK_MODELO_COLOR.xls"
     
@@ -195,12 +196,16 @@ def check_desktop_file_updated():
         
         # Verificar si ya fue procesado hoy
         if is_file_already_processed_today(desktop_file, processed_marker):
-            logger.info("📅 Archivo ya procesado hoy, eliminando del Desktop")
+            logger.info("📅 Archivo ya procesado hoy, eliminando archivos del Desktop")
             try:
-                os.remove(desktop_file)
-                logger.info("🗑️ Archivo duplicado eliminado del Desktop")
+                if os.path.exists(desktop_file):
+                    os.remove(desktop_file)
+                    logger.info("🗑️ STOCK_MODELO_COLOR.xls duplicado eliminado del Desktop")
+                if os.path.exists(desktop_log):
+                    os.remove(desktop_log)
+                    logger.info("🗑️ log.txt duplicado eliminado del Desktop")
             except Exception as e:
-                logger.warning(f"⚠️ No se pudo eliminar archivo del Desktop: {e}")
+                logger.warning(f"⚠️ No se pudieron eliminar archivos duplicados del Desktop: {e}")
             
             return {
                 "has_file": True,
@@ -219,7 +224,8 @@ def check_desktop_file_updated():
                     "has_file": True,
                     "action": "process_new",
                     "message": "Archivo nuevo detectado, procesando",
-                    "source": "desktop"
+                    "source": "desktop",
+                    "desktop_log": desktop_log
                 }
             else:
                 logger.info("📁 Archivo del Desktop no es más reciente, usando archivo actual")
@@ -236,7 +242,8 @@ def check_desktop_file_updated():
                 "has_file": True,
                 "action": "process_new",
                 "message": "No hay archivo actual, procesando Desktop",
-                "source": "desktop"
+                "source": "desktop",
+                "desktop_log": desktop_log
             }
             
     except Exception as e:
@@ -404,16 +411,20 @@ def process_colors_data(input_file, desktop_check):
         # Marcar como procesado si viene del Desktop
         if desktop_check["action"] == "process_new":
             desktop_file = r"C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls"
+            desktop_log = r"C:\Users\ccusi\Desktop\log.txt"
             marker_file = "logs/desktop_colors_processed.json"
             mark_as_processed(desktop_file, marker_file)
             
-            # Eliminar archivo del Desktop
+            # Eliminar archivos del Desktop (limpieza completa)
             try:
                 if os.path.exists(desktop_file):
                     os.remove(desktop_file)
-                    logger.info("🗑️ Archivo del Desktop eliminado")
+                    logger.info("🗑️ STOCK_MODELO_COLOR.xls eliminado del Desktop")
+                if os.path.exists(desktop_log):
+                    os.remove(desktop_log)
+                    logger.info("🗑️ log.txt eliminado del Desktop")
             except Exception as e:
-                logger.warning(f"⚠️ No se pudo eliminar archivo del Desktop: {e}")
+                logger.warning(f"⚠️ No se pudo eliminar archivos del Desktop: {e}")
         
         return success
         

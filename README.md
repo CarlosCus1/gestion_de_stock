@@ -13,7 +13,8 @@ EADME.md</path>
 
 ### 📱 **Automatización Desktop Inteligente** (NUEVO)
 - **Procesamiento automático**: Detecta archivos en Desktop automáticamente
-- **Lógica "una vez y elimina"**: Procesa archivo una sola vez y lo elimina del Desktop
+- **Lógica "una vez y elimina"**: Procesa archivo una sola vez y elimina TODOS los archivos del Desktop
+- **Limpieza completa**: Elimina `STOCK_MODELO_COLOR.xls` y `log.txt` del Desktop
 - **Parser de apóstrofe integrado**: Detecta códigos por apóstrofe con formato robusto
 - **Filtrado por códigos válidos**: Usa catálogo de 1,097 códigos oficiales
 - **Verificación inteligente**: Compara timestamps y decide automáticamente

@@ -497,6 +497,7 @@ def deliver_files(files, destination):
         Returns: dict con información del procesamiento
         """
         desktop_file = r"C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls"
+        desktop_log = r"C:\Users\ccusi\Desktop\log.txt"
         processed_marker = "logs/desktop_colors_processed.json"
         work_file = "data_sources/raw_reports/STOCK_MODELO_COLOR.xls"
         
@@ -515,12 +516,16 @@ def deliver_files(files, destination):
             # Verificar si ya fue procesado hoy
             if self._is_desktop_already_processed_today(desktop_file, processed_marker):
                 self.logger.info("📅 Archivo Desktop ya procesado hoy")
-                # Eliminar archivo duplicado
+                # Eliminar archivos duplicados (limpieza completa del Desktop)
                 try:
-                    os.remove(desktop_file)
-                    self.logger.info("🗑️ Archivo duplicado eliminado del Desktop")
+                    if os.path.exists(desktop_file):
+                        os.remove(desktop_file)
+                        self.logger.info("🗑️ STOCK_MODELO_COLOR.xls duplicado eliminado del Desktop")
+                    if os.path.exists(desktop_log):
+                        os.remove(desktop_log)
+                        self.logger.info("🗑️ log.txt duplicado eliminado del Desktop")
                 except Exception as e:
-                    self.logger.warning(f"⚠️ No se pudo eliminar archivo del Desktop: {e}")
+                    self.logger.warning(f"⚠️ No se pudieron eliminar archivos duplicados del Desktop: {e}")
                 
                 return {
                     "processed": False,
@@ -539,7 +544,8 @@ def deliver_files(files, destination):
                         "processed": True,
                         "source": "desktop_newer",
                         "message": "Archivo nuevo del Desktop detectado",
-                        "desktop_file": desktop_file
+                        "desktop_file": desktop_file,
+                        "desktop_log": desktop_log
                     }
                 else:
                     self.logger.info("📁 Archivo actual es más reciente que Desktop")
@@ -555,7 +561,8 @@ def deliver_files(files, destination):
                     "processed": True,
                     "source": "desktop_only",
                     "message": "No hay archivo actual, procesando Desktop",
-                    "desktop_file": desktop_file
+                    "desktop_file": desktop_file,
+                    "desktop_log": desktop_log
                 }
                 
         except Exception as e:
