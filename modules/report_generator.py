@@ -76,19 +76,28 @@ class ReportGenerator:
 
     def generate_color_report(self) -> List[str]:
         """
-        Genera reporte de colores por código.
+        Genera reporte de colores por código con lógica inteligente del Desktop.
+        INTEGRA: Procesamiento automático desde Desktop + Filtrado + Lógica "una vez y eliminar"
 
         Returns:
             Lista de archivos generados
         """
-        self.logger.info("🎨 Generando reporte de colores...")
+        self.logger.info("🎨 Generando reporte de colores con lógica inteligente...")
 
         try:
-            # Importar y ejecutar el generador existente
+            # Importar función actualizada con lógica Desktop
             from scripts.generate_colores_json import generate_colores_files
 
+            # La nueva función incluye:
+            # - Verificación automática del Desktop
+            # - Parser de apóstrofe integrado
+            # - Filtrado por códigos válidos
+            # - Lógica de "procesar una vez y eliminar"
+            # - Mantenimiento de resultados anteriores
             success = generate_colores_files()
+            
             if success:
+                self.logger.info("✅ Reporte de colores generado exitosamente")
                 return ["stock_color.xlsx", "colores_por_codigo.json"]
             else:
                 self.logger.error("❌ Falló generación de colores")

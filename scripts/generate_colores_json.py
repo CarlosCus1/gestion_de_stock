@@ -2,6 +2,14 @@
 """
 Script para generar stock_color.xlsx y colores_por_codigo.json desde STOCK_MODELO_COLOR.xls
 Procesa el archivo HTML de stock por colores y genera los archivos correspondientes.
+INTEGRACIÓN COMPLETA: Desktop + Parser Apóstrofe + Filtrado + Lógica Inteligente
+
+Funcionalidades:
+- Detección automática de archivo en Desktop
+- Lógica de "procesar una vez y eliminar"
+- Parser de apóstrofe integrado
+- Filtrado por códigos válidos
+- Verificación inteligente de timestamps
 """
 
 import pandas as pd
@@ -10,6 +18,10 @@ import os
 import re
 import logging
 import sys
+import shutil
+from datetime import datetime, date
+from pathlib import Path
+from bs4 import BeautifulSoup
 
 # Agregar el directorio raíz al path para importar módulos
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,17 +50,241 @@ def setup_logging():
     """Configura el sistema de logging."""
     return logger
 
-def read_excel_file(file_path):
+def format_codigo_apostrophe(codigo):
     """
-    Lee el archivo Excel y extrae los datos.
+    Formatea el código removiendo el apóstrofe SIN agregar ceros extra
+    (Integrado desde extract_stock_apostrophe_filtered.py)
     """
+    # Remover apóstrofe si existe
+    codigo_limpio = codigo.strip("'")
+    
+    # Extraer solo números
+    numeros = re.findall(r'\d+', codigo_limpio)
+    if numeros:
+        numero = numeros[0]
+        
+        # Si empieza con 01, mantener formato original SIN agregar ceros
+        if numero.startswith('01'):
+            # NO agregar ceros extra, mantener como está
+            return numero
+    
+    return None
+
+def parse_html_apostrophe(html_content):
+    """
+    Parser que reconoce códigos específicamente por el apóstrofe
+    (Integrado desde extract_stock_apostrophe_filtered.py)
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    table = soup.find('table', class_='pvtTable')
+    
+    if not table:
+        logger.error("❌ No se encontró tabla con clase 'pvtTable'")
+        return []
+    
+    tbody = table.find('tbody')
+    if not tbody:
+        logger.error("❌ No se encontró tbody en la tabla")
+        return []
+        
+    rows = tbody.find_all('tr')
+    
+    data = []
+    
+    # Estado persistente
+    current_codigo = ''
+    current_descripcion = ''
+    
+    for row_idx, row in enumerate(rows):
+        cells = row.find_all(['th', 'td'])
+        
+        # Extraer códigos específicamente por apóstrofe
+        for cell in cells:
+            cell_text = cell.get_text(strip=True)
+            
+            # RECONOCIMIENTO POR APOSTROFE: Buscar códigos que empiecen con '
+            if cell.name == 'th' and cell_text.startswith("'") and re.match(r"^'\d+", cell_text):
+                codigo_formateado = format_codigo_apostrophe(cell_text)
+                if codigo_formateado:
+                    current_codigo = codigo_formateado
+                    
+                    # Buscar descripción en celdas siguientes de la misma fila
+                    cell_idx = cells.index(cell)
+                    for next_cell in cells[cell_idx+1:]:
+                        if next_cell.name == 'th' and len(next_cell.get_text(strip=True)) > 10:
+                            current_descripcion = next_cell.get_text(strip=True)
+                            break
+                    
+                    logger.debug(f"🔍 Código por apóstrofe: '{cell_text}' -> {current_codigo}")
+                    break
+        
+        # Procesar filas de datos (color y cantidad)
+        if len(cells) >= 2:
+            # Determinar si es una fila de datos
+            color = ''
+            cantidad = 0
+            
+            # Buscar color (celda TH sin rowspan y sin apóstrofe)
+            for cell in cells:
+                if (cell.name == 'th' and 
+                    'rowspan' not in cell.attrs and 
+                    not cell.get_text(strip=True).startswith("'") and
+                    len(cell.get_text(strip=True)) <= 25):  # Colores suelen ser más cortos
+                    color = cell.get_text(strip=True)
+                    break
+            
+            # Buscar cantidad (celda TD)
+            for cell in cells:
+                if cell.name == 'td':
+                    try:
+                        cantidad_text = cell.get_text(strip=True)
+                        # CORRECCIÓN: Manejar correctamente los decimales .000
+                        if '.' in cantidad_text:
+                            # Si termina en .000, eliminarlo completamente
+                            if cantidad_text.endswith('.000'):
+                                cantidad = int(cantidad_text[:-4])  # Quitar '.000'
+                            else:
+                                # Otros decimales, convertir normalmente
+                                cantidad = int(float(cantidad_text))
+                        else:
+                            cantidad = int(cantidad_text)
+                        break
+                    except:
+                        cantidad = 0
+                        break
+            
+            # Agregar registro si tenemos todos los datos necesarios
+            if (current_codigo and 
+                current_descripcion and 
+                color and 
+                cantidad > 0 and
+                current_codigo.startswith('01')):  # Mantener el filtro adicional
+                
+                row_data = {
+                    'codigo': current_codigo,
+                    'descripcion': current_descripcion,
+                    'color': color,
+                    'unidades': int(cantidad)  # Entero sin decimales
+                }
+                
+                data.append(row_data)
+    
+    logger.info(f"✅ Parser de apóstrofe procesó {len(data)} filas de datos")
+    return data
+
+def check_desktop_file_updated():
+    """
+    Verifica si el archivo del Desktop es más reciente que los archivos generados
+    Returns: dict con información del estado
+    """
+    desktop_file = r"C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls"
+    processed_marker = "logs/desktop_colors_processed.json"
+    work_file = "data_sources/raw_reports/STOCK_MODELO_COLOR.xls"
+    
     try:
-        # Intentar leer con diferentes configuraciones
-        df = pd.read_excel(file_path, header=None)
-        return df
+        # Crear directorios necesarios
+        os.makedirs(os.path.dirname(processed_marker), exist_ok=True)
+        
+        # Verificar si existe archivo en Desktop
+        if not os.path.exists(desktop_file):
+            return {
+                "has_file": False,
+                "action": "no_file",
+                "message": "No hay archivo en Desktop"
+            }
+        
+        # Verificar si ya fue procesado hoy
+        if is_file_already_processed_today(desktop_file, processed_marker):
+            logger.info("📅 Archivo ya procesado hoy, eliminando del Desktop")
+            try:
+                os.remove(desktop_file)
+                logger.info("🗑️ Archivo duplicado eliminado del Desktop")
+            except Exception as e:
+                logger.warning(f"⚠️ No se pudo eliminar archivo del Desktop: {e}")
+            
+            return {
+                "has_file": True,
+                "action": "already_processed",
+                "message": "Archivo ya procesado hoy, usando resultados anteriores"
+            }
+        
+        # Verificar timestamps si existe archivo de trabajo
+        if os.path.exists(work_file):
+            desktop_mtime = os.path.getmtime(desktop_file)
+            work_mtime = os.path.getmtime(work_file)
+            
+            if desktop_mtime > work_mtime:
+                logger.info("📱 Archivo del Desktop es más reciente, procesando...")
+                return {
+                    "has_file": True,
+                    "action": "process_new",
+                    "message": "Archivo nuevo detectado, procesando",
+                    "source": "desktop"
+                }
+            else:
+                logger.info("📁 Archivo del Desktop no es más reciente, usando archivo actual")
+                return {
+                    "has_file": True,
+                    "action": "use_existing",
+                    "message": "Usando archivo actual (más reciente)",
+                    "source": "existing"
+                }
+        else:
+            # No existe archivo de trabajo, usar Desktop
+            logger.info("📱 No existe archivo actual, usando Desktop")
+            return {
+                "has_file": True,
+                "action": "process_new",
+                "message": "No hay archivo actual, procesando Desktop",
+                "source": "desktop"
+            }
+            
     except Exception as e:
-        logger.error(f"[ERROR] Error leyendo archivo Excel: {e}")
-        raise
+        logger.error(f"❌ Error verificando Desktop: {e}")
+        return {
+            "has_file": False,
+            "action": "error",
+            "message": f"Error verificando Desktop: {e}"
+        }
+
+def is_file_already_processed_today(file_path, marker_file):
+    """Verifica si el archivo ya fue procesado hoy"""
+    try:
+        if not os.path.exists(marker_file):
+            return False
+        
+        with open(marker_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        last_processed = data.get('last_processed_date')
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        
+        return (last_processed == current_date and 
+                data.get('file_path') == file_path and
+                data.get('processed', False))
+        
+    except Exception as e:
+        logger.warning(f"⚠️ Error verificando estado de procesamiento: {e}")
+        return False
+
+def mark_as_processed(file_path, marker_file):
+    """Marca el archivo como procesado"""
+    os.makedirs(os.path.dirname(marker_file), exist_ok=True)
+    
+    data = {
+        'file_path': file_path,
+        'last_processed_date': datetime.now().strftime('%Y-%m-%d'),
+        'last_processed_time': datetime.now().strftime('%H:%M:%S'),
+        'processed': True,
+        'file_size': os.path.getsize(file_path) if os.path.exists(file_path) else 0
+    }
+    
+    try:
+        with open(marker_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        logger.info(f"📅 Marcado como procesado: {marker_file}")
+    except Exception as e:
+        logger.warning(f"⚠️ Error marcando como procesado: {e}")
 
 def load_codigos_generales():
     """
@@ -61,7 +297,7 @@ def load_codigos_generales():
             return set()
 
         df_codigos = pd.read_excel(codigos_file, header=None)
-        # Assign new headers based on the desired order
+        # Asignar headers basados en el orden deseado
         df_codigos.columns = ['orden', 'codigo', 'u_por_caja']
         codigos_validos = set()
 
@@ -81,225 +317,230 @@ def load_codigos_generales():
         logger.error(f"[ERROR] Error cargando códigos generales: {e}")
         return set()
 
-def generate_colores_files():
+def read_excel_file(file_path):
     """
-    Genera stock_color.xlsx y colores_por_codigo.json desde STOCK_MODELO_COLOR.xls
+    Lee el archivo Excel y extrae los datos.
     """
-    logger = setup_logging()
-
     try:
-        # Rutas de archivos (usando rutas directas por compatibilidad)
-        input_file = "data_sources/raw_reports/STOCK_MODELO_COLOR.xls"
-        output_xlsx = "outputs/reports/stock_color.xlsx"
-        output_json = "outputs/reports/colores_por_codigo.json"
+        # Intentar leer con diferentes configuraciones
+        df = pd.read_excel(file_path, header=None)
+        return df
+    except Exception as e:
+        logger.error(f"[ERROR] Error leyendo archivo Excel: {e}")
+        raise
 
-        # Verificar que existe el archivo de entrada
-        if not os.path.exists(input_file):
-            logger.error(f"[ERROR] No se encuentra el archivo {input_file}")
+def process_colors_with_desktop():
+    """
+    Procesamiento completo con lógica inteligente del Desktop
+    """
+    logger.info("🎨 Iniciando procesamiento de colores con lógica inteligente...")
+    
+    # PASO 1: Verificar Desktop
+    desktop_check = check_desktop_file_updated()
+    logger.info(f"📋 Estado Desktop: {desktop_check['message']}")
+    
+    # PASO 2: Decidir fuente de datos
+    input_file = "data_sources/raw_reports/STOCK_MODELO_COLOR.xls"
+    
+    if desktop_check["action"] == "process_new":
+        # Usar archivo del Desktop
+        try:
+            desktop_file = r"C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls"
+            logger.info(f"📱 Copiando archivo del Desktop...")
+            shutil.copy2(desktop_file, input_file)
+            logger.info(f"✅ Archivo copiado desde Desktop")
+        except Exception as e:
+            logger.error(f"❌ Error copiando desde Desktop: {e}")
             return False
+            
+    elif desktop_check["action"] == "already_processed":
+        # Ya procesado, usar archivo existente o terminar
+        if os.path.exists(input_file):
+            logger.info("📁 Usando archivo existente del último procesamiento")
+        else:
+            logger.error("❌ No hay archivo para procesar")
+            return False
+            
+    elif desktop_check["action"] == "use_existing":
+        # Usar archivo actual (más reciente)
+        logger.info("📁 Usando archivo actual existente")
+        
+    else:  # no_file o error
+        # Verificar si hay archivo para usar
+        if os.path.exists(input_file):
+            logger.info("📁 Usando archivo actual disponible")
+        else:
+            logger.error("❌ No hay archivo fuente disponible")
+            return False
+    
+    # PASO 3: Procesar datos normalmente
+    return process_colors_data(input_file, desktop_check)
 
-        # Crear directorios de salida si no existen
-        os.makedirs(os.path.dirname(output_xlsx), exist_ok=True)
-        # El JSON ahora va en la misma carpeta que el Excel, no necesita directorio separado
-
-        # Cargar códigos válidos desde codigos_generales.xlsx
+def process_colors_data(input_file, desktop_check):
+    """
+    Procesamiento principal de datos de colores
+    """
+    try:
+        # Cargar códigos válidos
         logger.info("[INFO] Cargando códigos generales válidos...")
         codigos_validos = load_codigos_generales()
-
-        # Leer el archivo Excel
-        logger.info("[INFO] Leyendo archivo STOCK_MODELO_COLOR.xls...")
-        df = read_excel_file(input_file)
-
-        # Headers basados en la estructura del archivo
-        headers = ['grupo', 'tipo', 'familia', 'codigo', 'descripcion', 'modelo', 'color', 'unidades']
-
-        # Convertir DataFrame a lista de listas
-        rows = df.values.tolist()
-        logger.info(f"[SUCCESS] Datos extraidos: {len(rows)} filas, {len(df.columns)} columnas")
-
-        if not rows:
-            logger.error("[ERROR] No se encontraron datos en la tabla")
+        
+        # Leer archivo HTML
+        logger.info("[INFO] Leyendo archivo de datos...")
+        with open(input_file, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Parsear con parser de apóstrofe
+        logger.info("[INFO] Parseando datos con reconocimiento de apóstrofe...")
+        df = parse_html_apostrophe_to_dataframe(html_content)
+        
+        if df is None or df.empty:
+            logger.error("❌ No se pudieron extraer datos")
             return False
+        
+        # Generar archivos
+        success = generate_output_files(df, codigos_validos, desktop_check)
+        
+        # Marcar como procesado si viene del Desktop
+        if desktop_check["action"] == "process_new":
+            desktop_file = r"C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls"
+            marker_file = "logs/desktop_colors_processed.json"
+            mark_as_processed(desktop_file, marker_file)
+            
+            # Eliminar archivo del Desktop
+            try:
+                if os.path.exists(desktop_file):
+                    os.remove(desktop_file)
+                    logger.info("🗑️ Archivo del Desktop eliminado")
+            except Exception as e:
+                logger.warning(f"⚠️ No se pudo eliminar archivo del Desktop: {e}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"❌ Error procesando datos: {e}")
+        return False
 
-        # Limpiar datos
-        logger.info("[INFO] Limpiando datos...")
+def parse_html_apostrophe_to_dataframe(html_content):
+    """
+    Convierte el resultado del parser de apóstrofe a DataFrame
+    """
+    try:
+        data = parse_html_apostrophe(html_content)
+        if not data:
+            return None
+        
+        df = pd.DataFrame(data)
+        
+        # Aplicar filtros adicionales
+        df = df[df['unidades'] > 0]  # Solo unidades positivas
+        df = df[df['codigo'].str.len() > 0]  # Códigos no vacíos
+        
+        logger.info(f"📊 Datos parseados: {len(df)} filas válidas")
+        return df
+        
+    except Exception as e:
+        logger.error(f"❌ Error convirtiendo a DataFrame: {e}")
+        return None
 
-        # Usar solo las columnas que necesitamos
-        if len(df.columns) >= 8:
-            df_clean = df.iloc[:, :8].copy()
-            df_clean.columns = headers
+def generate_output_files(df, codigos_validos, desktop_check):
+    """
+    Genera los archivos de salida (Excel y JSON)
+    """
+    try:
+        # Crear directorios de salida
+        output_dir = "outputs/reports"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        output_xlsx = os.path.join(output_dir, "stock_color.xlsx")
+        output_json = os.path.join(output_dir, "colores_por_codigo.json")
+        
+        # Filtrar por códigos válidos
+        if codigos_validos:
+            df_filtered = df[df['codigo'].isin(codigos_validos)].copy()
+            logger.info(f"🔍 Filtrado: {len(df)} → {len(df_filtered)} códigos válidos")
         else:
-            logger.error(f"[ERROR] El archivo no tiene suficientes columnas. Encontradas: {len(df.columns)}")
+            df_filtered = df.copy()
+            logger.info("🔍 Sin filtro de códigos válidos")
+        
+        if df_filtered.empty:
+            logger.error("❌ No hay datos después del filtrado")
             return False
-
-        # Rellenar valores faltantes en 'codigo' y 'descripcion' para manejar celdas combinadas
-        logger.info("[INFO] Rellenando códigos y descripciones para agrupar colores...")
-        df_clean['codigo'] = df_clean['codigo'].replace('', pd.NA).ffill()
-        df_clean['descripcion'] = df_clean['descripcion'].replace('', pd.NA).ffill()
-
-        # Convertir unidades a numérico
-        if 'unidades' in df.columns:
-            df['unidades'] = pd.to_numeric(df['unidades'], errors='coerce').fillna(0).astype(int)
-
-        # Limpiar códigos (quitar comillas simples)
-        if 'codigo' in df.columns:
-            df['codigo'] = df['codigo'].str.replace("'", "").str.strip()
-
-        # Generar stock_color.xlsx con códigos repetidos por color
-        logger.info("[INFO] Generando stock_color.xlsx con códigos repetidos...")
-
-        # Crear DataFrame con códigos repetidos (cada código-color en fila separada)
-        rows_data = []
-
-        for _, row in df_clean.iterrows():
-            codigo = str(row.get('codigo', '')).strip()
-            if not codigo or codigo.lower() == 'codigo':  # Saltar headers
-                continue
-
-            # Normalizar código para comparación
-            codigo_normalizado = codigo.strip("'\" \t\n\r").strip()
-
-            # Solo procesar códigos válidos
-            if codigos_validos and codigo_normalizado not in codigos_validos:
-                continue
-
-            descripcion = str(row.get('descripcion', '')).strip()
-            color = str(row.get('color', '')).strip()
-            unidades_val = row.get('unidades', 0)
-
-            # Verificar si unidades es un número válido
-            try:
-                if pd.isna(unidades_val):
-                    unidades = 0
-                else:
-                    unidades = float(unidades_val)
-                    if pd.isna(unidades):
-                        unidades = 0
-                    else:
-                        unidades = int(unidades)
-            except (ValueError, TypeError):
-                continue
-
-            # Agregar fila al DataFrame (cada código-color es una fila separada)
-            rows_data.append({
-                'codigo': codigo_normalizado,
-                'descripcion': descripcion,
-                'color': color,
-                'unidades': unidades
-            })
-
-        # Crear DataFrame final
-        df_final = pd.DataFrame(rows_data)
-
-        # Verificar que tenemos códigos repetidos
-        if len(df_final) > 0:
-            codigos_repetidos = df_final['codigo'].value_counts()
-            max_repeticiones = codigos_repetidos.max()
-            logger.info(f"[INFO] Código más repetido aparece {max_repeticiones} veces")
-
+        
+        # Generar Excel
+        logger.info("[INFO] Generando stock_color.xlsx...")
         with pd.ExcelWriter(output_xlsx, engine='xlsxwriter') as writer:
-            # Hoja principal con todos los datos
-            df_final.to_excel(writer, sheet_name='Colores', index=False)
-
-            # Configurar formato
-            workbook = writer.book
+            df_filtered.to_excel(writer, sheet_name='Colores', index=False)
+            
+            # Formato básico
             worksheet = writer.sheets['Colores']
-
-            # Ajustar ancho de columnas
-            column_widths = {
-                'codigo': 12,
-                'descripcion': 50,
-                'color': 20,
-                'unidades': 10
-            }
-
-            for i, col in enumerate(df_final.columns):
-                width = column_widths.get(col, 15)
-                worksheet.set_column(i, i, width)
-
-            # Agregar formato de tabla
-            (max_row, max_col) = df_final.shape
-            worksheet.add_table(0, 0, max_row, max_col - 1, {
-                'columns': [{'header': col} for col in df_final.columns],
-                'style': 'Table Style Medium 9',
-                'name': 'StockColores'
-            })
-
-        logger.info(f"[SUCCESS] stock_color.xlsx generado en {output_xlsx}")
-
-        # Generar colores_por_codigo.json
+            worksheet.set_column(0, 0, 12)  # codigo
+            worksheet.set_column(1, 1, 50)  # descripcion
+            worksheet.set_column(2, 2, 25)  # color
+            worksheet.set_column(3, 3, 10)  # unidades
+        
+        logger.info(f"✅ stock_color.xlsx generado: {output_xlsx}")
+        
+        # Generar JSON
         logger.info("[INFO] Generando colores_por_codigo.json...")
-
-        # Agrupar por código (solo códigos válidos)
         colores_por_codigo = {}
-        codigos_procesados = 0
-        codigos_filtrados = 0
-
-        for _, row in df_final.iterrows():
-            codigo = str(row.get('codigo', '')).strip()
-            if not codigo or codigo.lower() == 'codigo':  # Saltar headers
-                continue
-
-            # Normalizar código para comparación
-            codigo_normalizado = codigo.strip("'\" \t\n\r").strip()
-
-            # Solo procesar códigos válidos
-            if codigos_validos and codigo_normalizado not in codigos_validos:
-                codigos_filtrados += 1
-                continue
-
-            descripcion = str(row.get('descripcion', '')).strip()
-            color = str(row.get('color', '')).strip()
-            unidades_val = row.get('unidades', 0)
-
-            # Verificar si unidades es un número válido
-            try:
-                if pd.isna(unidades_val):
-                    unidades = 0
-                else:
-                    # Intentar convertir a número
-                    unidades = float(unidades_val)
-                    if pd.isna(unidades):
-                        unidades = 0
-                    else:
-                        unidades = int(unidades)
-            except (ValueError, TypeError):
-                # Si no se puede convertir, saltar esta fila
-                continue
-
-            if codigo_normalizado not in colores_por_codigo:
-                colores_por_codigo[codigo_normalizado] = {
+        
+        for _, row in df_filtered.iterrows():
+            codigo = str(row['codigo']).strip()
+            descripcion = str(row['descripcion']).strip()
+            color = str(row['color']).strip()
+            unidades = int(row['unidades'])
+            
+            if codigo not in colores_por_codigo:
+                colores_por_codigo[codigo] = {
                     'descripcion': descripcion,
                     'colores': []
                 }
-
-            colores_por_codigo[codigo_normalizado]['colores'].append({
+            
+            colores_por_codigo[codigo]['colores'].append({
                 'color': color,
                 'unidades': unidades
             })
-            codigos_procesados += 1
-
-        logger.info(f"[INFO] Códigos procesados: {codigos_procesados}, filtrados: {codigos_filtrados}")
-
-        # Guardar JSON
+        
         with open(output_json, 'w', encoding='utf-8') as f:
             json.dump(colores_por_codigo, f, ensure_ascii=False, indent=2)
-
-        logger.info(f"[SUCCESS] colores_por_codigo.json generado en {output_json}")
-        logger.info(f"[INFO] Total de codigos procesados: {len(colores_por_codigo)}")
-
+        
+        logger.info(f"✅ colores_por_codigo.json generado: {output_json}")
+        logger.info(f"📈 Total códigos procesados: {len(colores_por_codigo)}")
+        
         return True
-
+        
     except Exception as e:
-        logger.error(f"[ERROR] Error generando archivos de colores: {str(e)}")
+        logger.error(f"❌ Error generando archivos: {e}")
+        return False
+
+def generate_colores_files():
+    """
+    Función principal unificada para generar archivos de colores
+    """
+    logger.info("🎨 Iniciando generación de archivos de colores...")
+    
+    try:
+        # Ejecutar procesamiento con lógica inteligente
+        success = process_colors_with_desktop()
+        
+        if success:
+            logger.info("🎉 Proceso completado exitosamente")
+            return True
+        else:
+            logger.error("💥 Proceso falló")
+            return False
+            
+    except Exception as e:
+        logger.error(f"💥 Error fatal en generación de colores: {e}")
         return False
 
 if __name__ == "__main__":
     logger = setup_logging()
-    logger.info("[INFO] Iniciando generacion de archivos de colores...")
+    logger.info("[INFO] Iniciando generación de archivos de colores con Desktop...")
     success = generate_colores_files()
     if success:
         logger.info("[SUCCESS] Proceso completado exitosamente")
     else:
-        logger.error("[ERROR] Proceso fallo")
+        logger.error("[ERROR] Proceso falló")
         exit(1)

@@ -23,6 +23,7 @@ import sys
 import json
 import logging
 import argparse
+import shutil
 from datetime import datetime, date
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -473,7 +474,120 @@ def deliver_files(files, destination):
         return result
 
     def _should_update_colors(self) -> bool:
-        """Determina si se debe actualizar el reporte de colores basado en cambios en los datos."""
+        """Determina si se debe actualizar el reporte de colores con lógica inteligente del Desktop."""
+        # VERIFICACIÓN PRIORITARIA DEL DESKTOP
+        desktop_result = self._check_desktop_colors()
+        
+        if desktop_result["processed"]:
+            self.logger.info("📱 Archivo del Desktop procesado exitosamente")
+            return True
+        elif desktop_result["source"] == "already_processed":
+            self.logger.info("📅 Archivo ya procesado hoy, manteniendo resultados anteriores")
+            return False
+        elif desktop_result["source"] == "existing_better":
+            self.logger.info("📁 Archivo actual es más reciente que Desktop")
+            return False
+        else:
+            # FALLBACK: Verificar archivo normal para cambios
+            return self._check_normal_colors_update()
+
+    def _check_desktop_colors(self) -> Dict[str, Any]:
+        """
+        Verificación inteligente del Desktop para colores
+        Returns: dict con información del procesamiento
+        """
+        desktop_file = r"C:\Users\ccusi\Desktop\STOCK_MODELO_COLOR.xls"
+        processed_marker = "logs/desktop_colors_processed.json"
+        work_file = "data_sources/raw_reports/STOCK_MODELO_COLOR.xls"
+        
+        try:
+            # Crear directorios necesarios
+            os.makedirs(os.path.dirname(processed_marker), exist_ok=True)
+            
+            # Verificar si existe archivo en Desktop
+            if not os.path.exists(desktop_file):
+                return {
+                    "processed": False,
+                    "source": "no_desktop_file",
+                    "message": "No hay archivo en Desktop"
+                }
+            
+            # Verificar si ya fue procesado hoy
+            if self._is_desktop_already_processed_today(desktop_file, processed_marker):
+                self.logger.info("📅 Archivo Desktop ya procesado hoy")
+                # Eliminar archivo duplicado
+                try:
+                    os.remove(desktop_file)
+                    self.logger.info("🗑️ Archivo duplicado eliminado del Desktop")
+                except Exception as e:
+                    self.logger.warning(f"⚠️ No se pudo eliminar archivo del Desktop: {e}")
+                
+                return {
+                    "processed": False,
+                    "source": "already_processed",
+                    "message": "Archivo ya procesado hoy, usando resultados anteriores"
+                }
+            
+            # Verificar timestamps si existe archivo de trabajo
+            if os.path.exists(work_file):
+                desktop_mtime = os.path.getmtime(desktop_file)
+                work_mtime = os.path.getmtime(work_file)
+                
+                if desktop_mtime > work_mtime:
+                    self.logger.info("📱 Archivo del Desktop es más reciente, procesando...")
+                    return {
+                        "processed": True,
+                        "source": "desktop_newer",
+                        "message": "Archivo nuevo del Desktop detectado",
+                        "desktop_file": desktop_file
+                    }
+                else:
+                    self.logger.info("📁 Archivo actual es más reciente que Desktop")
+                    return {
+                        "processed": False,
+                        "source": "existing_better",
+                        "message": "Usando archivo actual (más reciente)"
+                    }
+            else:
+                # No existe archivo de trabajo, usar Desktop
+                self.logger.info("📱 No existe archivo actual, procesando Desktop")
+                return {
+                    "processed": True,
+                    "source": "desktop_only",
+                    "message": "No hay archivo actual, procesando Desktop",
+                    "desktop_file": desktop_file
+                }
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error verificando Desktop: {e}")
+            return {
+                "processed": False,
+                "source": "error",
+                "message": f"Error verificando Desktop: {e}"
+            }
+
+    def _is_desktop_already_processed_today(self, file_path: str, marker_file: str) -> bool:
+        """Verifica si el archivo Desktop ya fue procesado hoy"""
+        try:
+            if not os.path.exists(marker_file):
+                return False
+            
+            with open(marker_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            last_processed = data.get('last_processed_date')
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            
+            return (last_processed == current_date and
+                    data.get('file_path') == file_path and
+                    data.get('processed', False))
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Error verificando estado Desktop: {e}")
+            return False
+
+    def _check_normal_colors_update(self) -> bool:
+        """Lógica original de verificación para archivo normal (fallback)"""
         colors_data_file = "data_sources/raw_reports/STOCK_MODELO_COLOR.xls"
         hash_file = "logs/colors_data_hash.json"
         output_excel = "outputs/reports/stock_color.xlsx"
