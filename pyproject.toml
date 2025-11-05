@@ -1,0 +1,46 @@
+[project]
+name = "gestion-stock"
+version = "2.0.0"
+description = "Sistema de Gestión de Stock con ETL y reportes"
+authors = [
+    {name = "Sistema Interno", email = "admin@sistema.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "requests>=2.3",
+    "pydantic>=2.0",
+    "xlrd>=2.0",
+    "XlsxWriter>=3.1",
+    "python-dotenv>=0.20",
+    "beautifulsoup4>=4.12",
+    "Flask>=2.3",
+    "google-cloud-storage>=2.10",
+    "google-auth>=2.23",
+    "Werkzeug>=2.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "ruff>=0.0.250",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0",
+    "black>=23.0",
+    "ruff>=0.0.250",
+]

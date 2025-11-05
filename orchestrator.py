@@ -96,8 +96,36 @@ class StockOrchestrator:
                     {
                         "name": "local_desktop",
                         "type": "local",
-                        "path": "C:\\Users\\{username}\\Desktop",
-                        "files": ["reporte_stock_hoy.xlsx"]
+                        "path": "C:\\Users\\ccusi\\Desktop",
+                        "files": [
+                            "reporte_stock_hoy.xlsx",
+                            "productos_local.json",
+                            "stock_generales.json",
+                            "stock_color.xlsx",
+                            "colores_por_codigo.json",
+                            "feriados.json",
+                            "reporte_especiales.xlsx",
+                            "reporte_historico_general_VES.xlsx"
+                        ],
+                        "enabled": True,
+                        "overwrite": True
+                    },
+                    {
+                        "name": "google_drive",
+                        "type": "local",
+                        "path": "G:\\My Drive\\Gestion_360\\360_salida",
+                        "files": [
+                            "reporte_stock_hoy.xlsx",
+                            "productos_local.json",
+                            "stock_generales.json",
+                            "stock_color.xlsx",
+                            "colores_por_codigo.json",
+                            "feriados.json",
+                            "reporte_especiales.xlsx",
+                            "reporte_historico_general_VES.xlsx"
+                        ],
+                        "enabled": True,
+                        "overwrite": True
                     }
                 ]
             }
@@ -256,44 +284,8 @@ def deliver_files(files, destination):
 
         return results
 
-    def generate_specific_report(self, report_type: str) -> Dict[str, Any]:
-        """
-        Genera un reporte específico.
-        NOTA: Para producción, usar run_full_etl() que ejecuta todo unificado.
-
-        Args:
-            report_type: Tipo de reporte ('colors', 'holidays', 'special', 'historical')
-
-        Returns:
-            Dict con resultado de la generación
-        """
-        self.logger.warning(f"[WARNING] generate_specific_report() está obsoleto. Usar run_full_etl() para proceso unificado.")
-        self.logger.info(f"[INFO] Generando reporte individual: {report_type}")
-
-        result = {
-            "report_type": report_type,
-            "success": False,
-            "timestamp": datetime.now().isoformat(),
-            "files": [],
-            "error": "Método obsoleto - usar run_full_etl()",
-            "warning": "Este método genera reportes individuales. Para producción usar proceso unificado."
-        }
-
-        try:
-            if report_type == "colors":
-                exec_result = self._execute_colors_report()
-            elif report_type == "holidays":
-                exec_result = self._execute_holidays_report()
-            else:
-                exec_result = {"success": False, "error": f"Tipo de reporte '{report_type}' no soportado individualmente"}
-
-            result.update(exec_result)
-
-        except Exception as e:
-            self.logger.error(f"[ERROR] Error generando reporte {report_type}: {e}")
-            result["error"] = str(e)
-
-        return result
+    # Método obsoleto eliminado - usar run_full_etl() para proceso unificado completo
+    # Las funciones individuales han sido integradas en el proceso unificado
 
     def deliver_to_server(self, files: List[str], server_name: str) -> Dict[str, Any]:
         """
@@ -328,7 +320,19 @@ def deliver_files(files, destination):
                 raise ValueError(f"Servidor '{server_name}' no encontrado en configuración")
 
             # Filtrar archivos según la configuración del servidor
-            files_to_deliver = [f for f in files if f in server_config.get("files", [])]
+            configured_files = server_config.get("files", [])
+            
+            if any("*" in pattern for pattern in configured_files):
+                # Manejar patrones como *.xlsx, *.json
+                files_to_deliver = []
+                for pattern in configured_files:
+                    if pattern == "*.xlsx":
+                        files_to_deliver.extend([f for f in files if f.endswith(".xlsx")])
+                    elif pattern == "*.json":
+                        files_to_deliver.extend([f for f in files if f.endswith(".json")])
+            else:
+                # Filtrado exacto
+                files_to_deliver = [f for f in files if f in configured_files]
             
             if not files_to_deliver:
                 self.logger.info(f"No hay archivos para entregar a {server_name} según su configuración.")
@@ -989,12 +993,27 @@ def main():
             print(json.dumps(result, indent=2, ensure_ascii=False))
 
         elif args.report:
-            result = orchestrator.generate_specific_report(args.report)
+            print(f"[INFO] El argumento --report {args.report} requiere implementar funcionalidad específica")
+            print(f"[SUGERENCIA] Usar --full-etl para proceso completo unificado")
+            result = {
+                "success": False,
+                "message": f"Reportes individuales no disponibles. Usar --full-etl para proceso completo.",
+                "suggestion": "python orchestrator.py --full-etl"
+            }
             print(json.dumps(result, indent=2, ensure_ascii=False))
 
         elif args.deliver:
-            # TODO: Obtener lista de archivos a entregar
-            files = ["reporte_stock_hoy.xlsx"]  # Placeholder
+            # TODO: Implementar detección automática de archivos a entregar
+            files = [
+                "reporte_stock_hoy.xlsx",
+                "productos_local.json",
+                "stock_generales.json",
+                "stock_color.xlsx",
+                "colores_por_codigo.json",
+                "feriados.json",
+                "reporte_especiales.xlsx",
+                "reporte_historico_general_VES.xlsx"
+            ]  # Lista completa de archivos generados
             result = orchestrator.deliver_to_server(files, args.deliver)
             print(json.dumps(result, indent=2, ensure_ascii=False))
 
@@ -1006,7 +1025,7 @@ def main():
 
         elif args.list_servers:
             servers = orchestrator.config["delivery"]["servers"]
-            print("🖥️ Servidores disponibles:")
+            print("[INFO] Servidores disponibles:")
             for server in servers:
                 print(f"  • {server['name']}: {server['type']} - {server.get('path', 'N/A')}")
 

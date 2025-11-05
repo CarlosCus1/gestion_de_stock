@@ -173,8 +173,8 @@ class ETLProcessor:
             "timestamp": datetime.now().isoformat()
         }
 
-        # TODO: Implementar verificación de estado real
-        # Por ahora, verificar archivos recientes
+        # NOTE: Verificación de estado usando lógica de archivos recientes (simplificada)
+        # TODO: Implementar verificación de estado más robusta con base de datos o métricas
 
         try:
             # Verificar archivos generados recientemente
